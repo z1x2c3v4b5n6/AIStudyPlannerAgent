@@ -14,10 +14,13 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async login(payload: LoginPayload) {
       clearToken()
+      this.user = null
+      this.initialized = false
       const response = await authApi.login(payload)
       const result = response.data.data
       saveToken(result.tokenName, result.tokenValue)
       this.user = result.user
+      this.initialized = true
     },
     async register(payload: RegisterPayload) {
       await authApi.register(payload)
@@ -43,9 +46,9 @@ export const useAuthStore = defineStore('auth', {
         if (getToken()) await authApi.logout()
       } finally {
         this.user = null
+        this.initialized = true
         clearToken()
       }
     },
   },
 })
-

@@ -144,4 +144,4 @@ SCAN 0 MATCH "satoken:*" COUNT 100
 - Redis连接失败：确认Redis端口、数据库编号和密码；Redis不可用时登录不会返回成功。
 - 前端请求401：确认浏览器本地Token存在，请求头名称为 `satoken`，且Redis中的会话尚未过期。
 - 浏览器跨域失败：默认只允许 `http://localhost:5173`；可通过 `APP_CORS_ALLOWED_ORIGIN` 修改。
-- Java版本错误：运行 `java -version`、`javac -version` 和 `mvn -version`，它们都应显示Java 17。
+- Java版本错误：运行 `java -version` 和 `mvn -version`，两者都应显示Java 17。
