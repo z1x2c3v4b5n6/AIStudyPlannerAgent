@@ -1,0 +1,15 @@
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+backend/target/
+backend/src/main/resources/application-local.yml
+
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+
+*.log
+

@@ -1,0 +1,14 @@
+# Copy this file to backend/application-local.yml, then replace placeholders locally.
+# Spring Boot loads backend/application-local.yml through spring.config.import.
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/ai_study_planner?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia%2FShanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: your_mysql_username
+    password: your_mysql_password
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      password: ""
+

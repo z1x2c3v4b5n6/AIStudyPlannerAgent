@@ -1,0 +1,46 @@
+:root {
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1f2937;
+  background: #f4f7fb;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+a { color: #2563eb; text-decoration: none; }
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #eef4ff, #f7fbff 55%, #eefbf7);
+}
+
+.auth-card { width: min(420px, 100%); border-radius: 16px; }
+.auth-card h1 { margin: 4px 0 8px; text-align: center; }
+.subtitle { margin: 0 0 24px; color: #6b7280; text-align: center; }
+.full-button { width: 100%; }
+.switch-link { margin: 20px 0 4px; text-align: center; color: #6b7280; }
+
+.home-page { min-height: 100vh; }
+.home-page header {
+  height: 64px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+.welcome-card {
+  max-width: 880px;
+  margin: 64px auto;
+  padding: 48px;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 10px 30px rgba(31, 41, 55, 0.06);
+}
+.welcome-card h1 { margin-top: 0; }
+.welcome-card p { color: #6b7280; }
+
