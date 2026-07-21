@@ -1,5 +1,6 @@
 import http from './http'
-import type { ApiResponse, LoginResult, User } from '../types/auth'
+import type { ApiResponse } from '../types/api'
+import type { LoginResult, User } from '../types/auth'
 
 export interface RegisterPayload {
   username: string
@@ -26,4 +27,3 @@ export const authApi = {
     return http.get<ApiResponse<User>>('/auth/me')
   },
 }
-

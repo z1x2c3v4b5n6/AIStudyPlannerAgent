@@ -11,11 +11,3 @@ export interface LoginResult {
   timeout: number
   user: User
 }
-
-export interface ApiResponse<T> {
-  code: number
-  message: string
-  data: T
-  timestamp: number
-}
-
