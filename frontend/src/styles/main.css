@@ -75,8 +75,24 @@ a { color: var(--primary); text-decoration: none; }
 .distribution-item div { display: grid; gap: 3px; }
 .distribution-item small { color: var(--muted); }
 .distribution-item b { text-align: right; color: #475569; }
+.plan-builder { display: grid; grid-template-columns: minmax(300px,.8fr) minmax(420px,1.2fr); gap: 20px; margin-bottom: 20px; }
+.plan-custom-minutes { margin-left: 12px; }
+.draft-summary { display: grid; gap: 6px; padding: 12px 0 18px; color: var(--muted); }
+.draft-summary strong { color: #1f2937; }
+.draft-items, .plan-timeline { display: grid; gap: 10px; }
+.draft-item { display: grid; grid-template-columns: 34px minmax(150px,1fr) 120px auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+.draft-item p, .plan-timeline-item p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+.draft-sequence { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #eff6ff; color: var(--primary); font-weight: 700; }
+.draft-actions, .plan-item-buttons { display: flex; flex-wrap: wrap; }
+.plan-confirm { width: 100%; margin-top: 16px; }
+.plan-history { margin-top: 20px; }
+.plan-timeline { margin-top: 20px; }
+.plan-timeline-item { display: grid; grid-template-columns: 34px minmax(180px,1fr) auto; align-items: start; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.plan-item-buttons { grid-column: 2 / -1; }
+.plan-item-content small { color: #64748b; }
 @media (max-width: 1000px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1200px) { .statistics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .statistics-chart-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .plan-builder { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   .app-sidebar { display: none; }
   .app-main { width: 100%; margin-left: 0; }
@@ -102,4 +118,7 @@ a { color: var(--primary); text-decoration: none; }
   .task-row { align-items: flex-start; flex-direction: column; }
   .task-row-meta { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
   .user-actions > span { display: none; }
+  .draft-item { grid-template-columns: 34px minmax(0,1fr); }
+  .draft-item .el-input-number, .draft-actions { grid-column: 2; }
+  .plan-custom-minutes { width: 100%; margin: 10px 0 0; }
 }

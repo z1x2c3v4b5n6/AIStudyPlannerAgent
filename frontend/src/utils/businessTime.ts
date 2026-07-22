@@ -34,3 +34,9 @@ export function addBusinessDays(date: string, days: number) {
 export function inclusiveBusinessDays(start: string, end: string) {
   return Math.round((wallTimeMillis(`${end}T00:00:00`) - wallTimeMillis(`${start}T00:00:00`)) / 86_400_000) + 1
 }
+
+export function addWallMinutes(value: string, minutes: number) {
+  const date = new Date(wallTimeMillis(value) + minutes * 60_000)
+  const pad = (number: number) => String(number).padStart(2, '0')
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
+}
