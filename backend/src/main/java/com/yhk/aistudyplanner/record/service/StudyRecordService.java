@@ -86,14 +86,21 @@ public class StudyRecordService {
     @Transactional
     public StudyRecordView update(long id, RecordUpdateRequest request) {
         long userId = sessionService.currentUserId();
-        StudyRecord record = requireOwned(id, userId);
+        requireOwned(id, userId);
         validateAssociations(userId, request.subjectId(), request.taskId());
         int duration = validateAndCalculateDuration(request.startedAt(), request.endedAt());
-        applyFields(record, request.subjectId(), request.taskId(), request.startedAt(), request.endedAt(),
-                duration, request.feedback());
-        record.setUpdatedAt(LocalDateTime.now(clock));
-        int updated = recordMapper.update(record, new LambdaUpdateWrapper<StudyRecord>()
-                .eq(StudyRecord::getId, id).eq(StudyRecord::getUserId, userId));
+        LocalDateTime now = LocalDateTime.now(clock);
+        LambdaUpdateWrapper<StudyRecord> wrapper = new LambdaUpdateWrapper<StudyRecord>()
+                .eq(StudyRecord::getId, id)
+                .eq(StudyRecord::getUserId, userId)
+                .set(StudyRecord::getSubjectId, request.subjectId())
+                .set(StudyRecord::getTaskId, request.taskId())
+                .set(StudyRecord::getStartedAt, request.startedAt())
+                .set(StudyRecord::getEndedAt, request.endedAt())
+                .set(StudyRecord::getDurationMinutes, duration)
+                .set(StudyRecord::getFeedback, trimToNull(request.feedback()))
+                .set(StudyRecord::getUpdatedAt, now);
+        int updated = recordMapper.update(null, wrapper);
         if (updated != 1) throw new BusinessException(ErrorCode.RECORD_NOT_FOUND);
         return recordMapper.selectView(id, userId);
     }
@@ -136,6 +143,9 @@ public class StudyRecordService {
         if (!endedAt.isAfter(startedAt)) throw new BusinessException(ErrorCode.INVALID_RECORD_TIME);
         if (endedAt.isAfter(LocalDateTime.now(clock))) {
             throw new BusinessException(ErrorCode.RECORD_END_TIME_IN_FUTURE);
+        }
+        if (endedAt.isAfter(startedAt.plusMinutes(1440))) {
+            throw new BusinessException(ErrorCode.INVALID_RECORD_DURATION);
         }
         long duration = ChronoUnit.MINUTES.between(startedAt, endedAt);
         if (duration < 1 || duration > 1440) throw new BusinessException(ErrorCode.INVALID_RECORD_DURATION);
