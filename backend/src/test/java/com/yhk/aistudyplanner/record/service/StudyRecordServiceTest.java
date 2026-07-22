@@ -148,16 +148,9 @@ class StudyRecordServiceTest {
     }
 
     @Test
-    void acceptsExactlyTwentyFourHours() {
-        doAnswer(invocation -> { ((StudyRecord) invocation.getArgument(0)).setId(7L); return 1; })
-                .when(recordMapper).insert(any(StudyRecord.class));
-        when(recordMapper.selectView(7L, 1L)).thenReturn(view(7L, 1440));
-
-        StudyRecordView result = service.create(createRequest(
-                2L, null, NOW.minusMinutes(1440), NOW, null));
-
-        assertEquals(1440, result.durationMinutes());
-        verify(recordMapper).insert(argThat((StudyRecord record) -> record.getDurationMinutes() == 1440));
+    void rejectsRecordCrossingNaturalDay() {
+        assertError(ErrorCode.RECORD_CROSSES_DAY,
+                createRequest(2L, null, NOW.minusHours(22), NOW, null));
     }
 
     @Test
@@ -170,6 +163,27 @@ class StudyRecordServiceTest {
     void rejectsFutureEndTime() {
         assertError(ErrorCode.RECORD_END_TIME_IN_FUTURE,
                 createRequest(2L, null, NOW, NOW.plusMinutes(1), null));
+    }
+
+    @Test
+    void rejectsOverlappingRecordAndUsesCurrentUserBoundary() {
+        when(recordMapper.countOverlapping(1L, NOW.minusHours(1), NOW, null)).thenReturn(1L);
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.create(
+                createRequest(2L, null, NOW.minusHours(1), NOW, null)));
+        assertEquals(ErrorCode.RECORD_TIME_OVERLAP, exception.getErrorCode());
+        verify(recordMapper).countOverlapping(1L, NOW.minusHours(1), NOW, null);
+        verify(recordMapper, never()).insert(any(StudyRecord.class));
+    }
+
+    @Test
+    void updateOverlapCheckExcludesCurrentRecord() {
+        when(recordMapper.selectOne(any())).thenReturn(record(7L, 1L));
+        when(recordMapper.countOverlapping(1L, NOW.minusHours(1), NOW, 7L)).thenReturn(1L);
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.update(7L, updateRequest()));
+        assertEquals(ErrorCode.RECORD_TIME_OVERLAP, exception.getErrorCode());
+        verify(recordMapper).countOverlapping(1L, NOW.minusHours(1), NOW, 7L);
+        verify(recordMapper, never()).update(any(), any());
     }
 
     @Test

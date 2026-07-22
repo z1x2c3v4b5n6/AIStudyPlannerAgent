@@ -100,10 +100,24 @@ public class TaskService {
         long userId = sessionService.currentUserId();
         StudyTask task = requireOwned(id, userId);
         validateAssociations(userId, request.subjectId(), request.goalId());
-        applyEditableFields(task, request.subjectId(), request.goalId(), request.title(), request.description(),
+        String title = request.title().trim();
+        String description = trimToNull(request.description());
+        LocalDateTime updatedAt = LocalDateTime.now(BUSINESS_ZONE);
+        int updated = taskMapper.update(null, new LambdaUpdateWrapper<StudyTask>()
+                .eq(StudyTask::getId, id).eq(StudyTask::getUserId, userId)
+                .set(StudyTask::getSubjectId, request.subjectId())
+                .set(StudyTask::getGoalId, request.goalId())
+                .set(StudyTask::getTitle, title)
+                .set(StudyTask::getDescription, description)
+                .set(StudyTask::getPriority, request.priority())
+                .set(StudyTask::getEstimatedMinutes, request.estimatedMinutes())
+                .set(StudyTask::getPlannedDate, request.plannedDate())
+                .set(StudyTask::getDueAt, request.dueAt())
+                .set(StudyTask::getUpdatedAt, updatedAt));
+        if (updated != 1) throw new BusinessException(ErrorCode.TASK_NOT_FOUND);
+        applyEditableFields(task, request.subjectId(), request.goalId(), title, description,
                 request.priority(), request.estimatedMinutes(), request.plannedDate(), request.dueAt());
-        task.setUpdatedAt(LocalDateTime.now(BUSINESS_ZONE));
-        updateOwned(task, userId);
+        task.setUpdatedAt(updatedAt);
         return TaskView.from(task);
     }
 
@@ -159,8 +173,11 @@ public class TaskService {
     }
 
     private void updateOwned(StudyTask task, long userId) {
-        int updated = taskMapper.update(task, new LambdaUpdateWrapper<StudyTask>()
-                .eq(StudyTask::getId, task.getId()).eq(StudyTask::getUserId, userId));
+        int updated = taskMapper.update(null, new LambdaUpdateWrapper<StudyTask>()
+                .eq(StudyTask::getId, task.getId()).eq(StudyTask::getUserId, userId)
+                .set(StudyTask::getStatus, task.getStatus())
+                .set(StudyTask::getCompletedAt, task.getCompletedAt())
+                .set(StudyTask::getUpdatedAt, task.getUpdatedAt()));
         if (updated != 1) throw new BusinessException(ErrorCode.TASK_NOT_FOUND);
     }
 

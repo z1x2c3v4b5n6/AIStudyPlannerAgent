@@ -6,8 +6,9 @@ import DailyTrendChart from '../../components/charts/DailyTrendChart.vue'
 import SubjectDistributionChart from '../../components/charts/SubjectDistributionChart.vue'
 import type { DailyTrend, StatisticsSummary, SubjectDistribution } from '../../types/statistics'
 import { minutesLabel } from '../../utils/display'
+import { addBusinessDays, inclusiveBusinessDays, shanghaiDate } from '../../utils/businessTime'
 
-const dateRange = ref<string[]>([])
+const dateRange = ref<string[] | null>(null)
 const appliedRange = reactive({ startDate: '', endDate: '' })
 const summary = ref<StatisticsSummary | null>(null)
 const trend = ref<DailyTrend[]>([])
@@ -15,37 +16,29 @@ const distribution = ref<SubjectDistribution[]>([])
 const summaryLoading = ref(false), trendLoading = ref(false), distributionLoading = ref(false)
 const summaryFailed = ref(false), trendFailed = ref(false), distributionFailed = ref(false)
 const fallbackColors = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#dc2626']
-
-function localDateString(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+let requestVersion = 0
 
 function rangeForDays(days: number) {
-  const end = new Date()
-  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - days + 1)
-  return [localDateString(start), localDateString(end)]
+  const end = shanghaiDate()
+  return [addBusinessDays(end, -days + 1), end]
 }
 
-function validateRange(range: string[]) {
-  if (range.length !== 2) { ElMessage.warning('请选择完整的日期范围'); return false }
-  const start = new Date(`${range[0]}T00:00:00`).getTime()
-  const end = new Date(`${range[1]}T00:00:00`).getTime()
-  if (start > end) { ElMessage.warning('开始日期不能晚于结束日期'); return false }
-  if (Math.round((end - start) / 86_400_000) + 1 > 366) { ElMessage.warning('统计日期范围不能超过 366 天'); return false }
+function validateRange(range: string[] | null): range is string[] {
+  if (!range || range.length !== 2) { ElMessage.warning('请选择完整的日期范围'); return false }
+  const days = inclusiveBusinessDays(range[0], range[1])
+  if (days < 1) { ElMessage.warning('开始日期不能晚于结束日期'); return false }
+  if (days > 366) { ElMessage.warning('统计日期范围不能超过 366 天'); return false }
   return true
 }
 
 function params() { return { startDate: appliedRange.startDate, endDate: appliedRange.endDate } }
 
-async function loadSummary() { summaryLoading.value = true; summaryFailed.value = false; try { summary.value = (await statisticsApi.summary(params())).data.data } catch { summaryFailed.value = true; summary.value = null } finally { summaryLoading.value = false } }
-async function loadTrend() { trendLoading.value = true; trendFailed.value = false; try { trend.value = (await statisticsApi.dailyTrend(params())).data.data } catch { trendFailed.value = true; trend.value = [] } finally { trendLoading.value = false } }
-async function loadDistribution() { distributionLoading.value = true; distributionFailed.value = false; try { distribution.value = (await statisticsApi.subjectDistribution(params())).data.data } catch { distributionFailed.value = true; distribution.value = [] } finally { distributionLoading.value = false } }
-function loadAll() { loadSummary(); loadTrend(); loadDistribution() }
+async function loadSummary(version = requestVersion) { summaryLoading.value = true; summaryFailed.value = false; try { const data = (await statisticsApi.summary(params())).data.data; if (version === requestVersion) summary.value = data } catch { if (version === requestVersion) { summaryFailed.value = true; summary.value = null } } finally { if (version === requestVersion) summaryLoading.value = false } }
+async function loadTrend(version = requestVersion) { trendLoading.value = true; trendFailed.value = false; try { const data = (await statisticsApi.dailyTrend(params())).data.data; if (version === requestVersion) trend.value = data } catch { if (version === requestVersion) { trendFailed.value = true; trend.value = [] } } finally { if (version === requestVersion) trendLoading.value = false } }
+async function loadDistribution(version = requestVersion) { distributionLoading.value = true; distributionFailed.value = false; try { const data = (await statisticsApi.subjectDistribution(params())).data.data; if (version === requestVersion) distribution.value = data } catch { if (version === requestVersion) { distributionFailed.value = true; distribution.value = [] } } finally { if (version === requestVersion) distributionLoading.value = false } }
+function loadAll() { const version = ++requestVersion; loadSummary(version); loadTrend(version); loadDistribution(version) }
 
-function applyRange(range: string[]) {
+function applyRange(range: string[] | null) {
   if (!validateRange(range)) return
   dateRange.value = [...range]
   appliedRange.startDate = range[0]

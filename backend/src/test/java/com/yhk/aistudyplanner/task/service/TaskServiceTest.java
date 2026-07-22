@@ -1,6 +1,10 @@
 package com.yhk.aistudyplanner.task.service;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import com.yhk.aistudyplanner.auth.service.AuthSessionService;
 import com.yhk.aistudyplanner.common.exception.BusinessException;
 import com.yhk.aistudyplanner.common.exception.ErrorCode;
@@ -17,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -37,6 +42,7 @@ class TaskServiceTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), StudyTask.class);
         service = new TaskService(mapper, subjectService, goalService, sessionService);
         when(sessionService.currentUserId()).thenReturn(1L);
     }
@@ -59,11 +65,16 @@ class TaskServiceTest {
     @Test
     void completingTaskSetsCompletedAt() {
         when(mapper.selectOne(any())).thenReturn(task(4L, 1L, TaskStatus.IN_PROGRESS));
-        when(mapper.update(any(StudyTask.class), any())).thenReturn(1);
+        when(mapper.update(isNull(), any())).thenReturn(1);
         var result = service.changeStatus(4L, new TaskStatusRequest(TaskStatus.COMPLETED));
         assertEquals(TaskStatus.COMPLETED, result.status());
         assertNotNull(result.completedAt());
-        verify(mapper).update(argThat((StudyTask task) -> task.getCompletedAt() != null), any());
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        ArgumentCaptor<LambdaUpdateWrapper<StudyTask>> captor = (ArgumentCaptor) ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        verify(mapper).update(isNull(), captor.capture());
+        assertTrue(captor.getValue().getSqlSet().contains("completed_at"));
+        assertTrue(captor.getValue().getParamNameValuePairs().values().stream()
+                .anyMatch(LocalDateTime.class::isInstance));
     }
 
     @Test
@@ -71,7 +82,7 @@ class TaskServiceTest {
         StudyTask task = task(4L, 1L, TaskStatus.COMPLETED);
         task.setCompletedAt(LocalDateTime.now().minusHours(1));
         when(mapper.selectOne(any())).thenReturn(task);
-        when(mapper.update(any(StudyTask.class), any())).thenReturn(1);
+        when(mapper.update(isNull(), any())).thenReturn(1);
         var result = service.changeStatus(4L, new TaskStatusRequest(TaskStatus.IN_PROGRESS));
         assertEquals(TaskStatus.IN_PROGRESS, result.status());
         assertNull(result.completedAt());
