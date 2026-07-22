@@ -48,4 +48,18 @@ public interface StudyRecordMapper extends BaseMapper<StudyRecord> {
             WHERE r.id = #{id} AND r.user_id = #{userId}
             """)
     StudyRecordView selectView(@Param("id") long id, @Param("userId") long userId);
+
+    @Select("""
+            <script>
+            SELECT COUNT(*) FROM study_record
+            WHERE user_id = #{userId}
+              AND started_at &lt; #{endedAt}
+              AND ended_at &gt; #{startedAt}
+            <if test="excludedId != null">AND id != #{excludedId}</if>
+            </script>
+            """)
+    long countOverlapping(@Param("userId") long userId,
+                          @Param("startedAt") LocalDateTime startedAt,
+                          @Param("endedAt") LocalDateTime endedAt,
+                          @Param("excludedId") Long excludedId);
 }

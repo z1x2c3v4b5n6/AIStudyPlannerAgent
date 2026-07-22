@@ -12,8 +12,9 @@ import java.util.List;
 
 @Mapper
 public interface TaskMapper extends BaseMapper<StudyTask> {
-    @Select("SELECT * FROM study_task WHERE user_id = #{userId} AND planned_date = #{date} " +
-            "AND status IN ('TODO','IN_PROGRESS') ORDER BY priority DESC, due_at ASC, created_at DESC")
+    @Select("SELECT * FROM study_task WHERE user_id = #{userId} AND planned_date <= #{date} " +
+            "AND status IN ('TODO','IN_PROGRESS') ORDER BY planned_date ASC, priority DESC, " +
+            "due_at IS NULL ASC, due_at ASC, id ASC")
     List<StudyTask> selectToday(@Param("userId") long userId, @Param("date") LocalDate date);
 
     @Select("SELECT * FROM study_task WHERE user_id = #{userId} AND due_at >= #{from} AND due_at <= #{to} " +

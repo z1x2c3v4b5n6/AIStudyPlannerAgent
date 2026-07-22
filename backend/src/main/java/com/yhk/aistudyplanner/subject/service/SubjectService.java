@@ -67,18 +67,27 @@ public class SubjectService {
         Subject existing = requireOwned(id, userId);
         String name = request.name().trim();
         ensureNameAvailable(userId, name, id);
-        existing.setName(name);
-        existing.setDescription(trimToNull(request.description()));
-        existing.setColor(trimToNull(request.color()));
-        existing.setSortOrder(request.sortOrder() == null ? 0 : request.sortOrder());
-        existing.setUpdatedAt(LocalDateTime.now());
+        String description = trimToNull(request.description());
+        String color = trimToNull(request.color());
+        int sortOrder = request.sortOrder() == null ? 0 : request.sortOrder();
+        LocalDateTime updatedAt = LocalDateTime.now();
         try {
-            int updated = subjectMapper.update(existing, new LambdaUpdateWrapper<Subject>()
-                    .eq(Subject::getId, id).eq(Subject::getUserId, userId));
+            int updated = subjectMapper.update(null, new LambdaUpdateWrapper<Subject>()
+                    .eq(Subject::getId, id).eq(Subject::getUserId, userId)
+                    .set(Subject::getName, name)
+                    .set(Subject::getDescription, description)
+                    .set(Subject::getColor, color)
+                    .set(Subject::getSortOrder, sortOrder)
+                    .set(Subject::getUpdatedAt, updatedAt));
             if (updated != 1) throw new BusinessException(ErrorCode.SUBJECT_NOT_FOUND);
         } catch (DuplicateKeyException exception) {
             throw new BusinessException(ErrorCode.SUBJECT_NAME_EXISTS);
         }
+        existing.setName(name);
+        existing.setDescription(description);
+        existing.setColor(color);
+        existing.setSortOrder(sortOrder);
+        existing.setUpdatedAt(updatedAt);
         return SubjectView.from(existing);
     }
 

@@ -31,6 +31,8 @@ public enum ErrorCode {
     RECORD_END_TIME_IN_FUTURE(40015, "学习记录结束时间不能晚于当前时间", HttpStatus.BAD_REQUEST),
     INVALID_DATE_RANGE(40016, "开始日期不能晚于结束日期", HttpStatus.BAD_REQUEST),
     DATE_RANGE_TOO_LARGE(40017, "统计日期范围不能超过366天", HttpStatus.BAD_REQUEST),
+    RECORD_CROSSES_DAY(40018, "学习记录不能跨越自然日", HttpStatus.BAD_REQUEST),
+    RECORD_TIME_OVERLAP(40915, "学习记录时间与已有记录重叠", HttpStatus.CONFLICT),
     REDIS_UNAVAILABLE(50300, "登录服务暂时不可用", HttpStatus.SERVICE_UNAVAILABLE),
     DATABASE_ERROR(50001, "数据库服务异常", HttpStatus.INTERNAL_SERVER_ERROR),
     INTERNAL_ERROR(50000, "系统内部异常", HttpStatus.INTERNAL_SERVER_ERROR);

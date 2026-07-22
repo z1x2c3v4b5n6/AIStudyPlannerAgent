@@ -78,13 +78,24 @@ public class GoalService {
         long userId = sessionService.currentUserId();
         StudyGoal goal = requireOwned(id, userId);
         subjectService.requireOwned(request.subjectId(), userId);
+        String title = request.title().trim();
+        String description = trimToNull(request.description());
+        LocalDateTime updatedAt = LocalDateTime.now();
+        int updated = goalMapper.update(null, new LambdaUpdateWrapper<StudyGoal>()
+                .eq(StudyGoal::getId, id).eq(StudyGoal::getUserId, userId)
+                .set(StudyGoal::getSubjectId, request.subjectId())
+                .set(StudyGoal::getTitle, title)
+                .set(StudyGoal::getDescription, description)
+                .set(StudyGoal::getTargetMinutes, request.targetMinutes())
+                .set(StudyGoal::getTargetDate, request.targetDate())
+                .set(StudyGoal::getUpdatedAt, updatedAt));
+        if (updated != 1) throw new BusinessException(ErrorCode.GOAL_NOT_FOUND);
         goal.setSubjectId(request.subjectId());
-        goal.setTitle(request.title().trim());
-        goal.setDescription(trimToNull(request.description()));
+        goal.setTitle(title);
+        goal.setDescription(description);
         goal.setTargetMinutes(request.targetMinutes());
         goal.setTargetDate(request.targetDate());
-        goal.setUpdatedAt(LocalDateTime.now());
-        updateOwned(goal, userId);
+        goal.setUpdatedAt(updatedAt);
         return GoalView.from(goal);
     }
 

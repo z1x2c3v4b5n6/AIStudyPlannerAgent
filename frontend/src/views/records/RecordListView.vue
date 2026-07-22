@@ -8,6 +8,7 @@ import type { RecordPayload, StudyRecord } from '../../types/record'
 import type { Subject } from '../../types/subject'
 import type { StudyTask } from '../../types/task'
 import { formatDateTime, minutesLabel, nullableText } from '../../utils/display'
+import { shanghaiDateTime, wallTimeMillis } from '../../utils/businessTime'
 
 const subjects = ref<Subject[]>([])
 const rows = ref<StudyRecord[]>([])
@@ -15,7 +16,10 @@ const filterTasks = ref<StudyTask[]>([])
 const formTasks = ref<StudyTask[]>([])
 const total = ref(0)
 const loading = ref(false)
-const taskLoading = ref(false)
+const filterTaskLoading = ref(false)
+const formTaskLoading = ref(false)
+let filterTaskRequest = 0
+let formTaskRequest = 0
 const submitting = ref(false)
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
@@ -24,7 +28,7 @@ const detail = ref<StudyRecord | null>(null)
 const editingId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
 
-const filters = reactive({ subjectId: undefined as number | undefined, taskId: undefined as number | undefined, dateRange: [] as string[] })
+const filters = reactive({ subjectId: undefined as number | undefined, taskId: undefined as number | undefined, dateRange: null as string[] | null })
 const query = reactive({ page: 1, pageSize: 10 })
 const form = reactive({
   subjectId: undefined as number | undefined,
@@ -36,8 +40,8 @@ const form = reactive({
 
 function timeValues() {
   if (!form.startedAt || !form.endedAt) return null
-  const start = new Date(form.startedAt).getTime()
-  const end = new Date(form.endedAt).getTime()
+  const start = wallTimeMillis(form.startedAt)
+  const end = wallTimeMillis(form.endedAt)
   return Number.isFinite(start) && Number.isFinite(end) ? { start, end, span: end - start } : null
 }
 
@@ -47,7 +51,8 @@ function validateTime(_rule: unknown, _value: unknown, callback: (error?: Error)
   if (values.span <= 0) return callback(new Error('结束时间必须晚于开始时间'))
   if (values.span < 60_000) return callback(new Error('学习时长至少为 1 分钟'))
   if (values.span > 86_400_000) return callback(new Error('单次学习时长不能超过 24 小时'))
-  if (values.end > Date.now()) return callback(new Error('结束时间不能晚于当前时间'))
+  if (form.startedAt.slice(0, 10) !== form.endedAt.slice(0, 10)) return callback(new Error('学习记录不能跨越自然日'))
+  if (form.endedAt > shanghaiDateTime()) return callback(new Error('结束时间不能晚于北京时间'))
   callback()
 }
 
@@ -68,13 +73,29 @@ async function loadSubjects() {
   try { subjects.value = (await subjectApi.list()).data.data } catch { subjects.value = [] }
 }
 
-async function fetchTasks(subjectId: number, target: typeof filterTasks) {
-  taskLoading.value = true
+async function fetchTasks(subjectId: number, target: typeof filterTasks, currentTaskId?: number | null) {
+  const isFilter = target === filterTasks
+  const requestId = isFilter ? ++filterTaskRequest : ++formTaskRequest
+  const loadingTarget = isFilter ? filterTaskLoading : formTaskLoading
+  loadingTarget.value = true
   try {
     const page = (await taskApi.list({ page: 1, pageSize: 100, subjectId })).data.data
-    target.value = page.list
+    if (requestId !== (isFilter ? filterTaskRequest : formTaskRequest)) return
+    let tasks = page.list
+    if (currentTaskId && !tasks.some((item) => item.id === currentTaskId)) {
+      try {
+        const current = (await taskApi.get(currentTaskId)).data.data
+        if (requestId !== formTaskRequest) return
+        if (current.subjectId === subjectId) tasks = [current, ...tasks]
+      } catch { /* 当前关联任务不可访问时维持分页结果 */ }
+    }
+    target.value = tasks
     if (page.total > 100) ElMessage.warning('当前仅显示前 100 条任务')
-  } catch { target.value = [] } finally { taskLoading.value = false }
+  } catch {
+    if (requestId === (isFilter ? filterTaskRequest : formTaskRequest)) target.value = []
+  } finally {
+    if (requestId === (isFilter ? filterTaskRequest : formTaskRequest)) loadingTarget.value = false
+  }
 }
 
 async function loadRecords() {
@@ -85,8 +106,8 @@ async function loadRecords() {
       pageSize: query.pageSize,
       subjectId: filters.subjectId,
       taskId: filters.taskId,
-      startDate: filters.dateRange[0] || undefined,
-      endDate: filters.dateRange[1] || undefined,
+      startDate: filters.dateRange?.[0] || undefined,
+      endDate: filters.dateRange?.[1] || undefined,
     }
     const page = (await recordApi.list(params)).data.data
     rows.value = page.list
@@ -95,12 +116,14 @@ async function loadRecords() {
 }
 
 async function filterSubjectChanged() {
+  filterTaskRequest++
   filters.taskId = undefined
   filterTasks.value = []
   if (filters.subjectId) await fetchTasks(filters.subjectId, filterTasks)
 }
 
 async function formSubjectChanged() {
+  formTaskRequest++
   form.taskId = null
   formTasks.value = []
   if (form.subjectId) await fetchTasks(form.subjectId, formTasks)
@@ -108,7 +131,7 @@ async function formSubjectChanged() {
 
 function search() { query.page = 1; loadRecords() }
 function resetFilters() {
-  Object.assign(filters, { subjectId: undefined, taskId: undefined, dateRange: [] })
+  Object.assign(filters, { subjectId: undefined, taskId: undefined, dateRange: null })
   filterTasks.value = []
   query.page = 1
   loadRecords()
@@ -131,7 +154,7 @@ async function openEdit(item: StudyRecord) {
   form.endedAt = item.endedAt.slice(0, 19)
   form.feedback = item.feedback || ''
   dialogVisible.value = true
-  await fetchTasks(item.subjectId, formTasks)
+  await fetchTasks(item.subjectId, formTasks, item.taskId)
   form.taskId = item.taskId
   nextTick(() => formRef.value?.clearValidate())
 }
@@ -180,7 +203,7 @@ onMounted(async () => { await Promise.all([loadSubjects(), loadRecords()]) })
     <el-card shadow="never" class="panel-card">
       <div class="filter-bar record-filter">
         <el-select v-model="filters.subjectId" clearable placeholder="全部科目" @change="filterSubjectChanged"><el-option v-for="item in subjects" :key="item.id" :label="item.name" :value="item.id" /></el-select>
-        <el-select v-model="filters.taskId" clearable :disabled="!filters.subjectId" :loading="taskLoading" placeholder="全部任务"><el-option v-for="item in filterTasks" :key="item.id" :label="item.title" :value="item.id" /></el-select>
+        <el-select v-model="filters.taskId" clearable :disabled="!filters.subjectId" :loading="filterTaskLoading" placeholder="全部任务"><el-option v-for="item in filterTasks" :key="item.id" :label="item.title" :value="item.id" /></el-select>
         <el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" />
         <el-button type="primary" @click="search">查询</el-button><el-button @click="resetFilters">重置</el-button>
       </div>
@@ -198,9 +221,9 @@ onMounted(async () => { await Promise.all([loadSubjects(), loadRecords()]) })
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑学习记录' : '新增学习记录'" width="min(620px, 92vw)" destroy-on-close @closed="resetForm">
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-        <div class="form-grid"><el-form-item label="科目" prop="subjectId"><el-select v-model="form.subjectId" class="full-width" @change="formSubjectChanged"><el-option v-for="item in subjects" :key="item.id" :label="item.name" :value="item.id" /></el-select></el-form-item><el-form-item label="关联任务（可选）" prop="taskId"><el-select v-model="form.taskId" clearable class="full-width" :disabled="!form.subjectId" :loading="taskLoading" placeholder="不关联任务"><el-option v-for="item in formTasks" :key="item.id" :label="item.title" :value="item.id" /></el-select></el-form-item></div>
+        <div class="form-grid"><el-form-item label="科目" prop="subjectId"><el-select v-model="form.subjectId" class="full-width" @change="formSubjectChanged"><el-option v-for="item in subjects" :key="item.id" :label="item.name" :value="item.id" /></el-select></el-form-item><el-form-item label="关联任务（可选）" prop="taskId"><el-select v-model="form.taskId" clearable class="full-width" :disabled="!form.subjectId" :loading="formTaskLoading" placeholder="不关联任务"><el-option v-for="item in formTasks" :key="item.id" :label="item.title" :value="item.id" /></el-select></el-form-item></div>
         <div class="form-grid"><el-form-item label="开始时间" prop="startedAt"><el-date-picker v-model="form.startedAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" class="full-width" /></el-form-item><el-form-item label="结束时间" prop="endedAt"><el-date-picker v-model="form.endedAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" class="full-width" /></el-form-item></div>
-        <div class="record-duration-preview"><span>预计记录时长</span><strong>{{ durationPreview }}</strong><small>仅用于预览，最终时长以后端计算为准</small></div>
+        <div class="record-duration-preview"><span>预计记录时长（北京时间）</span><strong>{{ durationPreview }}</strong><small>不能跨越自然日；最终时长以后端计算为准</small></div>
         <el-form-item label="学习反馈" prop="feedback"><el-input v-model="form.feedback" type="textarea" :rows="4" maxlength="1000" show-word-limit placeholder="可选；清空后将删除原反馈" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" :loading="submitting" @click="submit">保存</el-button></template>

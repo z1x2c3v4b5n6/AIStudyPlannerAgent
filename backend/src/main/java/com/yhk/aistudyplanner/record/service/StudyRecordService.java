@@ -72,6 +72,7 @@ public class StudyRecordService {
         long userId = sessionService.currentUserId();
         validateAssociations(userId, request.subjectId(), request.taskId());
         int duration = validateAndCalculateDuration(request.startedAt(), request.endedAt());
+        ensureNoOverlap(userId, request.startedAt(), request.endedAt(), null);
         LocalDateTime now = LocalDateTime.now(clock);
         StudyRecord record = new StudyRecord();
         record.setUserId(userId);
@@ -89,6 +90,7 @@ public class StudyRecordService {
         requireOwned(id, userId);
         validateAssociations(userId, request.subjectId(), request.taskId());
         int duration = validateAndCalculateDuration(request.startedAt(), request.endedAt());
+        ensureNoOverlap(userId, request.startedAt(), request.endedAt(), id);
         LocalDateTime now = LocalDateTime.now(clock);
         LambdaUpdateWrapper<StudyRecord> wrapper = new LambdaUpdateWrapper<StudyRecord>()
                 .eq(StudyRecord::getId, id)
@@ -147,9 +149,18 @@ public class StudyRecordService {
         if (endedAt.isAfter(startedAt.plusMinutes(1440))) {
             throw new BusinessException(ErrorCode.INVALID_RECORD_DURATION);
         }
+        if (!startedAt.toLocalDate().equals(endedAt.toLocalDate())) {
+            throw new BusinessException(ErrorCode.RECORD_CROSSES_DAY);
+        }
         long duration = ChronoUnit.MINUTES.between(startedAt, endedAt);
         if (duration < 1 || duration > 1440) throw new BusinessException(ErrorCode.INVALID_RECORD_DURATION);
         return Math.toIntExact(duration);
+    }
+
+    private void ensureNoOverlap(long userId, LocalDateTime startedAt, LocalDateTime endedAt, Long excludedId) {
+        if (recordMapper.countOverlapping(userId, startedAt, endedAt, excludedId) > 0) {
+            throw new BusinessException(ErrorCode.RECORD_TIME_OVERLAP);
+        }
     }
 
     private void validateDateOrder(LocalDate startDate, LocalDate endDate) {
