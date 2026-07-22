@@ -162,7 +162,7 @@ npm.cmd run build
 
 响应会额外给出 `generatorType`、`provider`、`model`、`fallbackUsed` 和安全的 `fallbackReason`。`draft` 仍使用原有草案结构，可直接提交到 `POST /api/v1/plans/confirm`。AI 只选择候选任务、建议分钟数和理由；后端负责计算顺序及连续的起止时间，并校验任务归属、状态、重复项、时长和跨日约束。草案不会自动入库，必须由用户确认后保存。
 
-后端使用 Spring AI `1.1.8`，通过 OpenAI 兼容协议连接 DeepSeek，默认模型为 `deepseek-v4-flash`。AI 默认关闭且 API Key 不写入仓库：
+后端使用 Spring AI `1.1.8`，通过 OpenAI 兼容协议连接 DeepSeek，默认模型为 `deepseek-v4-flash`。当前 AI 规划会在请求顶层显式发送 `thinking.type=disabled`，使用非思考模式生成结构化计划。AI 默认关闭且 API Key 不写入仓库：
 
 ```powershell
 $env:AI_ENABLED='true'
