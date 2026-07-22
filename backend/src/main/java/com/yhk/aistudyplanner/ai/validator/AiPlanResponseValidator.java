@@ -1,11 +1,86 @@
 package com.yhk.aistudyplanner.ai.validator;
-import com.yhk.aistudyplanner.ai.dto.AiPlanModelResponse;import com.yhk.aistudyplanner.ai.gateway.AiProviderException;import com.yhk.aistudyplanner.ai.vo.AiPlanningContext;import com.yhk.aistudyplanner.common.exception.ErrorCode;import com.yhk.aistudyplanner.plan.dto.PlanDraftRequest;import com.yhk.aistudyplanner.plan.vo.*;import org.springframework.stereotype.Component;import java.time.*;import java.util.*;import java.util.function.Function;import java.util.stream.Collectors;
-@Component public class AiPlanResponseValidator {
- public PlanDraftView validate(PlanDraftRequest request,AiPlanningContext context,AiPlanModelResponse response){
-  if(response==null||response.items()==null||response.items().isEmpty())invalid();if(response.summary()==null||response.summary().isBlank()||response.summary().length()>1000)invalid();
-  Map<Long,AiPlanningContext.TaskContext> candidates=context.tasks().stream().collect(Collectors.toMap(AiPlanningContext.TaskContext::id,Function.identity()));Set<Long> used=new HashSet<>();List<PlanDraftItemView> result=new ArrayList<>();int remaining=request.availableMinutes();LocalDateTime cursor=LocalDateTime.of(request.planDate(),request.startTime());
-  for(var item:response.items()){if(item==null||item.taskId()==null||!used.add(item.taskId()))invalid();var task=candidates.get(item.taskId());if(task==null||item.plannedMinutes()==null||item.plannedMinutes()<15||item.plannedMinutes()>Math.max(15,task.estimatedMinutes())||item.reason()==null||item.reason().isBlank()||item.reason().length()>500)invalid();int minutes=item.plannedMinutes();if(minutes>remaining){minutes=remaining;if(minutes<15)invalid();}LocalDateTime end=cursor.plusMinutes(minutes);if(!end.toLocalDate().equals(request.planDate()))invalid();result.add(new PlanDraftItemView(result.size()+1,task.id(),task.title(),task.subjectId(),task.subjectName(),task.subjectColor(),cursor,end,minutes,item.reason().trim()));cursor=end;remaining-=minutes;}
-  if(result.isEmpty())invalid();int planned=request.availableMinutes()-remaining;return new PlanDraftView(UUID.randomUUID().toString(),request.planDate(),request.startTime(),request.availableMinutes(),planned,trim(request.requirement()),response.summary().trim(),List.copyOf(result));
- }
- private void invalid(){throw new AiProviderException(ErrorCode.AI_RESPONSE_INVALID);}private String trim(String s){return s==null||s.isBlank()?null:s.trim();}
+
+import com.yhk.aistudyplanner.ai.dto.AiPlanModelResponse;
+import com.yhk.aistudyplanner.ai.gateway.AiFailureCategory;
+import com.yhk.aistudyplanner.ai.gateway.AiProviderException;
+import com.yhk.aistudyplanner.ai.vo.AiPlanningContext;
+import com.yhk.aistudyplanner.common.exception.ErrorCode;
+import com.yhk.aistudyplanner.plan.dto.PlanDraftRequest;
+import com.yhk.aistudyplanner.plan.vo.*;
+import java.time.*;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AiPlanResponseValidator {
+  public PlanDraftView validate(
+      PlanDraftRequest request, AiPlanningContext context, AiPlanModelResponse response) {
+    if (response == null || response.items() == null || response.items().isEmpty())
+      invalid(AiFailureCategory.TEXT_INVALID);
+    if (response.summary() == null
+        || response.summary().isBlank()
+        || response.summary().length() > 1000) invalid(AiFailureCategory.TEXT_INVALID);
+    Map<Long, AiPlanningContext.TaskContext> candidates =
+        context.tasks().stream()
+            .collect(Collectors.toMap(AiPlanningContext.TaskContext::id, Function.identity()));
+    Set<Long> used = new HashSet<>();
+    List<PlanDraftItemView> result = new ArrayList<>();
+    int remaining = request.availableMinutes();
+    LocalDateTime cursor = LocalDateTime.of(request.planDate(), request.startTime());
+    for (var item : response.items()) {
+      if (item == null || item.taskId() == null) invalid(AiFailureCategory.TASK_ID_INVALID);
+      if (!used.add(item.taskId())) invalid(AiFailureCategory.TASK_DUPLICATED);
+      var task = candidates.get(item.taskId());
+      if (task == null) invalid(AiFailureCategory.TASK_ID_INVALID);
+      if (item.plannedMinutes() == null
+          || item.plannedMinutes() < 15
+          || item.plannedMinutes() > Math.max(15, task.estimatedMinutes()))
+        invalid(AiFailureCategory.ITEM_DURATION_INVALID);
+      if (item.reason() == null || item.reason().isBlank() || item.reason().length() > 500)
+        invalid(AiFailureCategory.TEXT_INVALID);
+      int minutes = item.plannedMinutes();
+      if (minutes > remaining) {
+        minutes = remaining;
+        if (minutes < 15) invalid(AiFailureCategory.TOTAL_DURATION_INVALID);
+      }
+      LocalDateTime end = cursor.plusMinutes(minutes);
+      if (!end.toLocalDate().equals(request.planDate()))
+        invalid(AiFailureCategory.TOTAL_DURATION_INVALID);
+      result.add(
+          new PlanDraftItemView(
+              result.size() + 1,
+              task.id(),
+              task.title(),
+              task.subjectId(),
+              task.subjectName(),
+              task.subjectColor(),
+              cursor,
+              end,
+              minutes,
+              item.reason().trim()));
+      cursor = end;
+      remaining -= minutes;
+    }
+    if (result.isEmpty()) invalid(AiFailureCategory.TEXT_INVALID);
+    int planned = request.availableMinutes() - remaining;
+    return new PlanDraftView(
+        UUID.randomUUID().toString(),
+        request.planDate(),
+        request.startTime(),
+        request.availableMinutes(),
+        planned,
+        trim(request.requirement()),
+        response.summary().trim(),
+        List.copyOf(result));
+  }
+
+  private void invalid(AiFailureCategory category) {
+    throw new AiProviderException(ErrorCode.AI_RESPONSE_INVALID, category);
+  }
+
+  private String trim(String s) {
+    return s == null || s.isBlank() ? null : s.trim();
+  }
 }
