@@ -17,6 +17,8 @@ const router = createRouter({
         { path: 'subjects', name: 'subjects', component: () => import('../views/subjects/SubjectListView.vue') },
         { path: 'goals', name: 'goals', component: () => import('../views/goals/GoalListView.vue') },
         { path: 'tasks', name: 'tasks', component: () => import('../views/tasks/TaskListView.vue') },
+        { path: 'records', name: 'records', component: () => import('../views/records/RecordListView.vue') },
+        { path: 'statistics', name: 'statistics', component: () => import('../views/statistics/StatisticsView.vue') },
       ],
     },
     { path: '/login', name: 'login', component: LoginView, meta: { guestOnly: true } },
