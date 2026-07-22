@@ -8,8 +8,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Clock;
+import java.time.ZoneId;
+
 @Configuration
 public class AppConfig {
+
+    @Bean
+    public Clock businessClock() {
+        return Clock.system(ZoneId.of("Asia/Shanghai"));
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

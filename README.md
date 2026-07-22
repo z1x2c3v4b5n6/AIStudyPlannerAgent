@@ -1,6 +1,6 @@
 # AI Study Planner Agent
 
-AI 学习规划 Agent 的前后端分离 MVP。当前已完成基础认证、学习科目、学习目标和学习任务的后端与前端管理功能，以及学习概览首页。尚未实现学习记录、统计图表、学习计划、AI、Agent、DeepSeek 和 SSE。
+AI 学习规划 Agent 的前后端分离 MVP。当前已完成基础认证、学习科目、学习目标和学习任务的前后端功能，以及第三阶段 A 的学习记录与基础统计后端。尚未实现学习记录和统计前端、学习计划、AI、Agent、DeepSeek 和 SSE。
 
 ## 环境要求
 
@@ -127,6 +127,73 @@ npm.cmd run build
 
 任务状态包括 `TODO`、`IN_PROGRESS`、`COMPLETED`、`CANCELLED`，优先级为 1 至 4。普通创建和更新接口不接收 `status`、`completedAt`；完成时间由后端维护。
 
+### 学习记录接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/records` | 分页查询当前用户学习记录 |
+| GET | `/api/v1/records/{id}` | 查询学习记录详情 |
+| POST | `/api/v1/records` | 创建学习记录并由后端计算时长 |
+| PUT | `/api/v1/records/{id}` | 更新学习记录并重新计算时长 |
+| DELETE | `/api/v1/records/{id}` | 删除当前用户学习记录 |
+
+分页查询支持 `subjectId`、`taskId`、`startDate` 和 `endDate`。日期格式为 `YYYY-MM-DD`，记录按照开始时间和 ID 倒序返回。`startDate` 包含当天零点，`endDate` 包含当天整天。
+
+创建或更新示例：
+
+```json
+{
+  "subjectId": 1,
+  "taskId": 10,
+  "startedAt": "2026-07-21T19:00:00",
+  "endedAt": "2026-07-21T20:15:00",
+  "feedback": "完成了极限章节练习"
+}
+```
+
+调用方不能提交 `durationMinutes`。后端使用 `ChronoUnit.MINUTES` 计算学习时长，单条记录必须为 1 至 1440 分钟，结束时间不得晚于当前上海时间。创建记录不会自动完成关联任务。
+
+返回示例：
+
+```json
+{
+  "id": 1,
+  "subjectId": 1,
+  "subjectName": "高等数学",
+  "subjectColor": "#409EFF",
+  "taskId": 10,
+  "taskTitle": "完成极限练习",
+  "startedAt": "2026-07-21T19:00:00",
+  "endedAt": "2026-07-21T20:15:00",
+  "durationMinutes": 75,
+  "feedback": "完成了极限章节练习"
+}
+```
+
+### 基础统计接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/statistics/summary` | 总时长、记录数、活跃天数和平均时长 |
+| GET | `/api/v1/statistics/daily-trend` | 按日期升序返回每日学习趋势并补齐零值日期 |
+| GET | `/api/v1/statistics/subject-distribution` | 按学习时长返回科目分布和百分比 |
+
+三个接口统一支持 `startDate`、`endDate`。不传日期时默认查询包含今天的最近 7 天；开始、结束日期均包含，范围最多 366 天。统计仅计算当前登录用户的数据。
+
+概览返回示例：
+
+```json
+{
+  "startDate": "2026-07-15",
+  "endDate": "2026-07-21",
+  "totalMinutes": 420,
+  "recordCount": 8,
+  "activeDays": 5,
+  "averageDailyMinutes": 60.0,
+  "averageMinutesPerActiveDay": 84.0
+}
+```
+
 ## 后端构建与测试
 
 ```powershell
@@ -137,8 +204,8 @@ mvn clean package
 
 ## 当前未实现
 
-- 学习记录管理
-- 数据统计图表
+- 学习记录管理前端
+- 基础统计与统计图表前端
 - 今日学习计划草案与保存
 - DeepSeek、Spring AI、Agent 工具和 Prompt 管理
 - SSE 流式输出
