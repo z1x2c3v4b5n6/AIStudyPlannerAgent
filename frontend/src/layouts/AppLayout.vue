@@ -13,6 +13,7 @@ const navItems = [
   { path: '/subjects', label: '科目管理' },
   { path: '/goals', label: '学习目标' },
   { path: '/tasks', label: '学习任务' },
+  { path: '/plans', label: '学习计划' },
   { path: '/records', label: '学习记录' },
   { path: '/statistics', label: '数据统计' },
 ]

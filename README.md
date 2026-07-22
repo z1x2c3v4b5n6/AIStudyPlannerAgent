@@ -1,6 +1,6 @@
 # AI Study Planner Agent
 
-AI 学习规划 Agent 的前后端分离 MVP。当前已完成基础认证、学习科目、学习目标、学习任务、学习记录和基础统计的前后端功能。尚未实现学习计划、AI、Agent、DeepSeek 和 SSE。
+AI 学习规划 Agent 的前后端分离 MVP。当前已完成基础认证、学习科目、学习目标、学习任务、学习记录、基础统计和规则生成学习计划的前后端功能。尚未实现 AI、Agent、DeepSeek 和 SSE。
 
 ## 环境要求
 
@@ -60,6 +60,7 @@ npm.cmd run build
 | `/subjects` | 科目管理 | 科目列表、创建、编辑和删除 |
 | `/goals` | 学习目标 | 分页筛选、创建、编辑、状态变更、详情进度和删除 |
 | `/tasks` | 学习任务 | 多条件筛选、创建、编辑、状态变更、详情和删除 |
+| `/plans` | 学习计划 | 规则生成草案、调整确认、历史查询和执行状态跟踪 |
 | `/records` | 学习记录 | 分页筛选、创建、编辑、清空任务或反馈、详情和删除 |
 | `/statistics` | 数据统计 | 日期范围查询、统计概览、每日趋势和科目时长分布 |
 
@@ -128,6 +129,19 @@ npm.cmd run build
 | DELETE | `/api/v1/tasks/{id}` | 删除无学习记录或计划项引用的任务 |
 
 任务状态包括 `TODO`、`IN_PROGRESS`、`COMPLETED`、`CANCELLED`，优先级为 1 至 4。普通创建和更新接口不接收 `status`、`completedAt`；完成时间由后端维护。
+
+### 学习计划接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/plans/draft` | 根据未完成任务生成确定性规则草案，不写数据库 |
+| POST | `/api/v1/plans/confirm` | 重新校验草案并事务保存，相同 `draftId` 幂等 |
+| GET | `/api/v1/plans` | 按日期和状态分页查询当前用户计划 |
+| GET | `/api/v1/plans/{id}` | 查询计划及完整计划项 |
+| PATCH | `/api/v1/plans/{id}/status` | 取消已确认计划 |
+| PATCH | `/api/v1/plans/{planId}/items/{itemId}/status` | 完成、跳过或恢复计划项 |
+
+本阶段的学习计划使用稳定规则生成，不调用 AI：逾期和临近截止任务优先，其次按照优先级、计划日期、进行中状态和任务 ID 排序。草案只存在于接口响应和前端状态中，用户确认后才写入 `study_plan` 与 `study_plan_item`。计划项全部完成或跳过时计划自动完成，恢复任一计划项后计划回到已确认。计划项状态不会自动修改原学习任务状态。
 
 ### 学习记录接口
 

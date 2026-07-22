@@ -30,7 +30,7 @@ onMounted(() => { loadSubjects(); loadGoals(); loadToday(); loadUpcoming() })
 
 <template>
   <section class="page-section">
-    <div class="page-heading"><div><h1>学习概览</h1><p>聚焦今天要做的事，并留意即将到期的任务。</p></div></div>
+    <div class="page-heading"><div><h1>学习概览</h1><p>聚焦今天要做的事，并留意即将到期的任务。</p></div><el-button type="primary" @click="$router.push('/plans')">生成学习计划</el-button></div>
     <div class="stat-grid">
       <el-card v-loading="subjectsLoading" shadow="never" class="stat-card"><span>学习科目</span><strong>{{ subjectsFailed ? '—' : subjects.length }}</strong><small v-if="subjectsFailed">加载失败</small></el-card>
       <el-card v-loading="goalsLoading" shadow="never" class="stat-card"><span>进行中目标</span><strong>{{ goalsFailed ? '—' : activeGoalTotal }}</strong><small v-if="goalsFailed">加载失败</small></el-card>
