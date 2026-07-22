@@ -61,7 +61,14 @@ public class AiPlanService {
           gateway
               .getObject()
               .generate(promptService.system(), promptService.user(request, context));
-      var draft = validator.validate(request, context, parser.parse(content));
+      var validation = validator.validateWithReport(request, context, parser.parse(content));
+      var draft = validation.draft();
+      if (validation.adjustedItems() > 0) {
+        log.info(
+            "AI planning duration normalized userId={}, adjustedItems={}",
+            userId,
+            validation.adjustedItems());
+      }
       log.info(
           "AI planning userId={}, model={}, elapsedMs={}, fallback=false, candidates={}, items={}",
           userId,

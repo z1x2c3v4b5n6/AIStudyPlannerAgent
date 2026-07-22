@@ -123,18 +123,21 @@ class AiPlanServiceTest {
   }
 
   @Test
-  void shortOversizedAndBadReasonFallback() {
-    assertFallbackFor(json("10,10,reason"));
-    assertFallbackFor(json("10,90,reason"));
+  void shortAndOversizedDurationsAreNormalizedButBadReasonStillFallbacks() {
+    assertEquals(15, assertAiFor(json("10,10,reason")).draft().items().get(0).plannedMinutes());
+    assertEquals(60, assertAiFor(json("10,90,reason")).draft().items().get(0).plannedMinutes());
     assertFallbackFor(json("10,30,"));
     assertFallbackFor(json("10,30," + "x".repeat(501)));
   }
 
   @Test
-  void totalOverLimitAndCrossDayFallback() {
+  void totalOverLimitIsSafelyReducedButInvalidRequestCrossDayStillFails() {
     request = new PlanDraftRequest(DATE, LocalTime.of(9, 0), 70, null);
-    assertFallbackFor(
-        "{\"summary\":\"x\",\"items\":[{\"taskId\":10,\"plannedMinutes\":60,\"reason\":\"x\"},{\"taskId\":11,\"plannedMinutes\":45,\"reason\":\"x\"}]}");
+    var result =
+        assertAiFor(
+            "{\"summary\":\"x\",\"items\":[{\"taskId\":10,\"plannedMinutes\":60,\"reason\":\"x\"},{\"taskId\":11,\"plannedMinutes\":45,\"reason\":\"x\"}]}");
+    assertEquals(60, result.draft().plannedMinutes());
+    assertEquals(1, result.draft().items().size());
     request = new PlanDraftRequest(DATE, LocalTime.of(23, 30), 60, null);
     assertEquals(
         ErrorCode.INVALID_PLAN_TIME,
@@ -165,6 +168,16 @@ class AiPlanServiceTest {
     var r = service.generate(request);
     assertTrue(r.fallbackUsed());
     assertEquals("RULE", r.generatorType());
+  }
+
+  private com.yhk.aistudyplanner.ai.vo.AiPlanDraftView assertAiFor(String content) {
+    available();
+    when(contexts.build(1, DATE)).thenReturn(context());
+    when(gateway.generate(anyString(), anyString())).thenReturn(content);
+    var result = service.generate(request);
+    assertFalse(result.fallbackUsed());
+    assertEquals("AI", result.generatorType());
+    return result;
   }
 
   private void available() {
