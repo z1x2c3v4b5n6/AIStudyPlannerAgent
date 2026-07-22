@@ -1,7 +1,10 @@
 package com.yhk.aistudyplanner.record.service;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yhk.aistudyplanner.auth.service.AuthSessionService;
 import com.yhk.aistudyplanner.common.exception.BusinessException;
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 
 import java.time.*;
 import java.util.List;
@@ -39,6 +43,7 @@ class StudyRecordServiceTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), StudyRecord.class);
         Clock clock = Clock.fixed(NOW.atZone(ZoneId.of("Asia/Shanghai")).toInstant(), ZoneId.of("Asia/Shanghai"));
         service = new StudyRecordService(recordMapper, taskMapper, subjectService, sessionService, clock);
         lenient().when(sessionService.currentUserId()).thenReturn(1L);
@@ -66,7 +71,7 @@ class StudyRecordServiceTest {
         StudyRecord existing = record(7L, 1L);
         when(recordMapper.selectOne(any())).thenReturn(existing);
         when(taskMapper.selectOne(any())).thenReturn(task(10L, 1L, 2L));
-        when(recordMapper.update(any(StudyRecord.class), any())).thenReturn(1);
+        when(recordMapper.update(isNull(), any(LambdaUpdateWrapper.class))).thenReturn(1);
         when(recordMapper.selectView(7L, 1L)).thenReturn(view(7L, 90));
 
         StudyRecordView result = service.update(7L, new RecordUpdateRequest(
@@ -74,8 +79,54 @@ class StudyRecordServiceTest {
 
         assertEquals(90, result.durationMinutes());
         verify(subjectService).requireOwned(2L, 1L);
-        verify(recordMapper).update(argThat(record -> record.getDurationMinutes() == 90
-                && record.getTaskId() == 10L), any());
+        ArgumentCaptor<LambdaUpdateWrapper<StudyRecord>> wrapperCaptor = updateWrapperCaptor();
+        verify(recordMapper).update(isNull(), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSet().contains("duration_minutes"));
+        assertTrue(wrapperCaptor.getValue().getParamNameValuePairs().containsValue(90));
+    }
+
+    @Test
+    void updateExplicitlyClearsTaskIdAndKeepsUserBoundary() {
+        StudyRecord existing = record(7L, 1L);
+        existing.setTaskId(10L);
+        when(recordMapper.selectOne(any())).thenReturn(existing);
+        when(recordMapper.update(isNull(), any(LambdaUpdateWrapper.class))).thenReturn(1);
+        when(recordMapper.selectView(7L, 1L)).thenReturn(viewWithoutTask(7L, 60, "保留反馈"));
+
+        StudyRecordView result = service.update(7L, new RecordUpdateRequest(
+                2L, null, NOW.minusMinutes(60), NOW, "保留反馈", null));
+
+        assertNull(result.taskId());
+        ArgumentCaptor<LambdaUpdateWrapper<StudyRecord>> wrapperCaptor = updateWrapperCaptor();
+        verify(recordMapper).update(isNull(), wrapperCaptor.capture());
+        LambdaUpdateWrapper<StudyRecord> wrapper = wrapperCaptor.getValue();
+        assertTrue(wrapper.getSqlSet().contains("task_id"));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(null));
+        assertTrue(wrapper.getSqlSegment().contains("id"));
+        assertTrue(wrapper.getSqlSegment().contains("user_id"));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(7L));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(1L));
+    }
+
+    @Test
+    void updateExplicitlyClearsBlankFeedback() {
+        StudyRecord existing = record(7L, 1L);
+        existing.setTaskId(10L);
+        existing.setFeedback("原反馈");
+        when(recordMapper.selectOne(any())).thenReturn(existing);
+        when(taskMapper.selectOne(any())).thenReturn(task(10L, 1L, 2L));
+        when(recordMapper.update(isNull(), any(LambdaUpdateWrapper.class))).thenReturn(1);
+        when(recordMapper.selectView(7L, 1L)).thenReturn(viewWithoutFeedback(7L, 60, 10L));
+
+        StudyRecordView result = service.update(7L, new RecordUpdateRequest(
+                2L, 10L, NOW.minusMinutes(60), NOW, "   ", null));
+
+        assertNull(result.feedback());
+        ArgumentCaptor<LambdaUpdateWrapper<StudyRecord>> wrapperCaptor = updateWrapperCaptor();
+        verify(recordMapper).update(isNull(), wrapperCaptor.capture());
+        LambdaUpdateWrapper<StudyRecord> wrapper = wrapperCaptor.getValue();
+        assertTrue(wrapper.getSqlSet().contains("feedback"));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(null));
     }
 
     @Test
@@ -94,6 +145,25 @@ class StudyRecordServiceTest {
     void rejectsDurationOverOneDay() {
         assertError(ErrorCode.INVALID_RECORD_DURATION,
                 createRequest(2L, null, NOW.minusMinutes(1441), NOW, null));
+    }
+
+    @Test
+    void acceptsExactlyTwentyFourHours() {
+        doAnswer(invocation -> { ((StudyRecord) invocation.getArgument(0)).setId(7L); return 1; })
+                .when(recordMapper).insert(any(StudyRecord.class));
+        when(recordMapper.selectView(7L, 1L)).thenReturn(view(7L, 1440));
+
+        StudyRecordView result = service.create(createRequest(
+                2L, null, NOW.minusMinutes(1440), NOW, null));
+
+        assertEquals(1440, result.durationMinutes());
+        verify(recordMapper).insert(argThat((StudyRecord record) -> record.getDurationMinutes() == 1440));
+    }
+
+    @Test
+    void rejectsTwentyFourHoursAndOneSecond() {
+        assertError(ErrorCode.INVALID_RECORD_DURATION,
+                createRequest(2L, null, NOW.minusMinutes(1440).minusSeconds(1), NOW, null));
     }
 
     @Test
@@ -196,8 +266,23 @@ class StudyRecordServiceTest {
         return record;
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private ArgumentCaptor<LambdaUpdateWrapper<StudyRecord>> updateWrapperCaptor() {
+        return (ArgumentCaptor) ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+    }
+
     private StudyRecordView view(long id, int duration) {
         return new StudyRecordView(id, 2L, "高等数学", "#409EFF", 10L, "极限练习",
                 NOW.minusMinutes(duration), NOW, duration, "反馈", NOW, NOW);
+    }
+
+    private StudyRecordView viewWithoutTask(long id, int duration, String feedback) {
+        return new StudyRecordView(id, 2L, "高等数学", "#409EFF", null, null,
+                NOW.minusMinutes(duration), NOW, duration, feedback, NOW, NOW);
+    }
+
+    private StudyRecordView viewWithoutFeedback(long id, int duration, Long taskId) {
+        return new StudyRecordView(id, 2L, "高等数学", "#409EFF", taskId, "极限练习",
+                NOW.minusMinutes(duration), NOW, duration, null, NOW, NOW);
     }
 }
