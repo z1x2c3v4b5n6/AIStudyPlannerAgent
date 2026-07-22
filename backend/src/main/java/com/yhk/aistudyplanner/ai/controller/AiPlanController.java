@@ -1,0 +1,3 @@
+package com.yhk.aistudyplanner.ai.controller;
+import com.yhk.aistudyplanner.ai.service.AiPlanService;import com.yhk.aistudyplanner.ai.vo.AiPlanDraftView;import com.yhk.aistudyplanner.common.response.ApiResponse;import com.yhk.aistudyplanner.plan.dto.PlanDraftRequest;import jakarta.validation.Valid;import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api/v1/ai/plans") public class AiPlanController {private final AiPlanService service;public AiPlanController(AiPlanService s){service=s;}@PostMapping("/draft")public ApiResponse<AiPlanDraftView> draft(@Valid @RequestBody PlanDraftRequest request){return ApiResponse.success(service.generate(request));}}

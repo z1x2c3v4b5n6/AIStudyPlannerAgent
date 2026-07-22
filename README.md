@@ -1,6 +1,6 @@
 # AI Study Planner Agent
 
-AI 学习规划 Agent 的前后端分离 MVP。当前已完成基础认证、学习科目、学习目标、学习任务、学习记录、基础统计和规则生成学习计划的前后端功能。尚未实现 AI、Agent、DeepSeek 和 SSE。
+AI 学习规划 Agent 的前后端分离 MVP。当前已完成基础认证、学习业务管理、学习记录与统计、规则学习计划的前后端功能，以及基于 DeepSeek 的 AI 学习计划草案后端基础。尚未实现 AI 前端入口、Agent、SSE、RAG 和会话历史。
 
 ## 环境要求
 
@@ -143,6 +143,40 @@ npm.cmd run build
 
 本阶段的学习计划使用稳定规则生成，不调用 AI：逾期和临近截止任务优先，其次按照优先级、计划日期、进行中状态和任务 ID 排序。草案只存在于接口响应和前端状态中，用户确认后才写入 `study_plan` 与 `study_plan_item`。计划项全部完成或跳过时计划自动完成，恢复任一计划项后计划回到已确认。计划项状态不会自动修改原学习任务状态。
 
+### AI 学习计划草案后端
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/ai/plans/draft` | 使用 DeepSeek 生成结构化学习计划草案；AI 不可用或输出不合法时自动返回规则草案 |
+
+请求语义与 `/api/v1/plans/draft` 一致：
+
+```json
+{
+  "planDate": "2026-07-23",
+  "startTime": "09:00:00",
+  "availableMinutes": 180,
+  "requirement": "优先复习 Java 集合和数据库"
+}
+```
+
+响应会额外给出 `generatorType`、`provider`、`model`、`fallbackUsed` 和安全的 `fallbackReason`。`draft` 仍使用原有草案结构，可直接提交到 `POST /api/v1/plans/confirm`。AI 只选择候选任务、建议分钟数和理由；后端负责计算顺序及连续的起止时间，并校验任务归属、状态、重复项、时长和跨日约束。草案不会自动入库，必须由用户确认后保存。
+
+后端使用 Spring AI `1.1.8`，通过 OpenAI 兼容协议连接 DeepSeek，默认模型为 `deepseek-v4-flash`。AI 默认关闭且 API Key 不写入仓库：
+
+```powershell
+$env:AI_ENABLED='true'
+$env:DEEPSEEK_API_KEY='your-key'
+$env:DEEPSEEK_BASE_URL='https://api.deepseek.com'
+$env:DEEPSEEK_COMPLETIONS_PATH='/chat/completions'
+$env:DEEPSEEK_MODEL='deepseek-v4-flash'
+$env:DEEPSEEK_TEMPERATURE='0.2'
+$env:DEEPSEEK_MAX_TOKENS='2500'
+$env:DEEPSEEK_TIMEOUT_SECONDS='45'
+```
+
+未配置 Key 时应用仍能启动，AI 草案接口会自动使用现有规则生成器。模型超时、限流、服务异常、空响应、非法 JSON 或业务校验失败也会降级并正常返回可用草案，不暴露第三方原始异常。本阶段未提供 AI 前端入口，也未实现 SSE、Agent/Function Calling、RAG、MCP 或 AI 会话历史。
+
 ### 学习记录接口
 
 | 方法 | 路径 | 说明 |
@@ -228,9 +262,9 @@ mvn clean package
 
 图表使用 ECharts，并从 `echarts/core` 按需注册折线图、柱状图、饼图、提示框、图例、网格和 Canvas 渲染器。每日趋势同时展示学习分钟和记录数；科目分布同时提供环形图与文本列表。
 
-第三阶段 B 已完成学习记录和基础统计前端，但尚未实现以下功能：
+当前已完成学习记录、基础统计、今日学习计划草案与确认保存的前端，以及 DeepSeek/Spring AI 非流式计划草案后端。后续仍未实现：
 
-- 今日学习计划草案与保存
-- DeepSeek、Spring AI、Agent 工具和 Prompt 管理
+- AI 学习规划前端入口
 - SSE 流式输出
-- AI 会话历史
+- Agent 工具调用与 Function Calling
+- RAG、MCP 和 AI 会话历史

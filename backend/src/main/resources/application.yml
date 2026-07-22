@@ -42,4 +42,12 @@ sa-token:
 app:
   cors:
     allowed-origin: ${APP_CORS_ALLOWED_ORIGIN:http://localhost:5173}
-
+  ai:
+    enabled: ${AI_ENABLED:false}
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    completions-path: ${DEEPSEEK_COMPLETIONS_PATH:/chat/completions}
+    api-key: ${DEEPSEEK_API_KEY:}
+    model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
+    temperature: ${DEEPSEEK_TEMPERATURE:0.2}
+    max-tokens: ${DEEPSEEK_MAX_TOKENS:2500}
+    timeout-seconds: ${DEEPSEEK_TIMEOUT_SECONDS:45}
