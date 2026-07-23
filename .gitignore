@@ -19,3 +19,4 @@ frontend/.env.*.local
 tatus --shortq
 
 backend/application-local.yml
+.env
