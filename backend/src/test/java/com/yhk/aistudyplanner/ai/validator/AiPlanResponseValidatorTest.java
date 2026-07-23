@@ -27,13 +27,10 @@ class AiPlanResponseValidatorTest {
   }
 
   @Test
-  void plannedMinutesAboveEstimatedMinutesIsInvalid() {
-    AiProviderException exception =
-        assertThrows(
-            AiProviderException.class,
-            () -> validate(120, List.of(task(10, 60)), items(item(10, 61))));
+  void plannedMinutesAboveEstimatedMinutesIsClamped() {
+    var draft = validate(120, List.of(task(10, 30)), items(item(10, 45)));
 
-    assertEquals(AiFailureCategory.ITEM_DURATION_INVALID.name(), exception.category());
+    assertEquals(30, draft.items().get(0).plannedMinutes());
   }
 
   @Test
@@ -44,6 +41,46 @@ class AiPlanResponseValidatorTest {
   }
 
   @Test
+  void shortPositiveDurationIsRaisedToFifteenMinutes() {
+    var draft = validate(30, List.of(task(10, 30)), items(item(10, 10)));
+
+    assertEquals(15, draft.items().get(0).plannedMinutes());
+  }
+
+  @Test
+  void estimateBelowFifteenCapsOversizedDurationAtFifteenMinutes() {
+    var draft = validate(30, List.of(task(10, 10)), items(item(10, 30)));
+
+    assertEquals(15, draft.items().get(0).plannedMinutes());
+  }
+
+  @Test
+  void nullZeroAndNegativeDurationsRemainInvalid() {
+    assertInvalidDuration(new AiPlanModelResponse.Item(10L, null, "安排理由"));
+    assertInvalidDuration(item(10, 0));
+    assertInvalidDuration(item(10, -1));
+  }
+
+  @Test
+  void normalizedItemsAreTruncatedToAvailableTime() {
+    var draft =
+        validate(75, List.of(task(10, 60), task(11, 60)), items(item(10, 90), item(11, 90)));
+
+    assertEquals(75, draft.plannedMinutes());
+    assertEquals(60, draft.items().get(0).plannedMinutes());
+    assertEquals(15, draft.items().get(1).plannedMinutes());
+  }
+
+  @Test
+  void stopsAddingTasksWhenRemainingTimeIsBelowFifteenMinutes() {
+    var draft =
+        validate(70, List.of(task(10, 60), task(11, 30)), items(item(10, 60), item(11, 30)));
+
+    assertEquals(60, draft.plannedMinutes());
+    assertEquals(1, draft.items().size());
+  }
+
+  @Test
   void validationFailuresExposeSafeSpecificCategories() {
     assertCategory(
         AiFailureCategory.TASK_ID_INVALID,
@@ -51,9 +88,6 @@ class AiPlanResponseValidatorTest {
     assertCategory(
         AiFailureCategory.TASK_DUPLICATED,
         () -> validate(60, List.of(task(10, 60)), items(item(10, 30), item(10, 30))));
-    assertCategory(
-        AiFailureCategory.TOTAL_DURATION_INVALID,
-        () -> validate(70, List.of(task(10, 60), task(11, 60)), items(item(10, 60), item(11, 15))));
     assertCategory(
         AiFailureCategory.TEXT_INVALID,
         () ->
@@ -117,5 +151,11 @@ class AiPlanResponseValidatorTest {
       AiFailureCategory category, org.junit.jupiter.api.function.Executable action) {
     AiProviderException exception = assertThrows(AiProviderException.class, action);
     assertEquals(category.name(), exception.category());
+  }
+
+  private void assertInvalidDuration(AiPlanModelResponse.Item invalidItem) {
+    assertCategory(
+        AiFailureCategory.ITEM_DURATION_INVALID,
+        () -> validate(60, List.of(task(10, 60)), items(invalidItem)));
   }
 }

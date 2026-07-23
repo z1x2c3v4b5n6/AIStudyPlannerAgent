@@ -87,7 +87,7 @@ class AiDraftConfirmationCompatibilityTest {
                 draftRequest,
                 context,
                 new AiPlanModelResponse(
-                    "按优先级安排", List.of(new AiPlanModelResponse.Item(10L, 60, "优先级较高"))));
+                    "按优先级安排", List.of(new AiPlanModelResponse.Item(10L, 90, "优先级较高"))));
     PlanConfirmRequest confirmRequest =
         new PlanConfirmRequest(
             draft.draftId(),
