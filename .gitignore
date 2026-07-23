@@ -2,6 +2,8 @@
 .vscode/
 *.iml
 .DS_Store
+/.env
+!.env.example
 
 backend/target/
 backend/src/main/resources/application-local.yml
@@ -12,5 +14,8 @@ frontend/.env.local
 frontend/.env.*.local
 
 *.log
+*.tmp
+*.out
+tatus --shortq
 
 backend/application-local.yml
