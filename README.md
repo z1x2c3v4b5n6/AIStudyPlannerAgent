@@ -1,271 +1,232 @@
 # AI Study Planner Agent
 
-AI 学习规划 Agent 的前后端分离 MVP。当前已完成基础认证、学习业务管理、学习记录与统计、规则学习计划，以及基于 DeepSeek 的 AI 学习计划草案前后端入口。尚未实现 Agent、SSE、RAG、MCP 和会话历史。
+一个面向个人学习管理的前后端分离项目。用户可以维护科目、目标、任务和学习记录，查看统计数据，并使用确定性规则或 DeepSeek AI 生成今日学习计划。AI 结果会经过后端业务校验和安全修正；模型不可用或结果不合法时，系统自动降级为规则计划。
 
-## 环境要求
+## 当前功能
 
-- Java 17
+- 用户注册、登录、退出及登录状态恢复
+- 学习科目、学习目标和学习任务管理
+- 今日待办、逾期任务及即将截止任务
+- 学习记录、时长校验、日期筛选和重叠检查
+- 学习概览、每日趋势和科目时长分布
+- 规则学习规划与 DeepSeek AI 学习规划
+- AI 失败自动降级，降级草案仍可编辑和保存
+- 草案排序、时长调整、恢复、确认和计划执行跟踪
+- 当前用户数据隔离和 Sa-Token 接口鉴权
+
+## 技术栈
+
+| 层级 | 技术 |
+|---|---|
+| 前端 | Vue 3、TypeScript、Vite、Element Plus、Pinia、ECharts |
+| 后端 | Java 17、Spring Boot 3.5、Spring AI 1.1.8、MyBatis-Plus、Sa-Token、Flyway |
+| 数据 | MySQL 8、Redis 7 |
+| AI | DeepSeek OpenAI 兼容接口，默认 `deepseek-v4-flash`，非思考模式 |
+| 工程化 | Maven、npm、Nginx、Docker Compose、GitHub Actions |
+
+## 系统架构
+
+```mermaid
+flowchart LR
+    U[Browser] --> V[Vue 3]
+    V --> N[Nginx]
+    N --> B[Spring Boot]
+    B --> M[(MySQL)]
+    B --> R[(Redis)]
+    B --> D[DeepSeek API]
+```
+
+浏览器只访问前端和后端业务接口。前端不会直接连接 DeepSeek；生产环境由 Nginx 将 `/api/` 请求代理到 Spring Boot。
+
+## AI 规划流程
+
+```mermaid
+flowchart TD
+    A[用户填写日期、可用时间和偏好] --> B[后端读取当前用户任务和近期学习数据]
+    B --> C{AI是否启用且已配置}
+    C -- 否 --> R[规则生成器]
+    C -- 是 --> D[构造受限Prompt并调用DeepSeek]
+    D --> E[解析结构化JSON]
+    E --> F{任务ID、重复项、文本和时间是否合法}
+    F -- 否 --> R
+    F -- 是 --> G[后端标准化时长并确定起止时间]
+    G --> H[返回AI草案]
+    R --> I[返回规则草案及安全降级原因]
+    H --> J[用户调整并确认]
+    I --> J
+    J --> K[事务保存计划和计划项]
+```
+
+AI 只负责选择候选任务、建议时长和理由。任务归属、状态、重复项、时间范围和总时长均由后端校验；正数时长偏差会被确定性修正，非法任务或无效结构会触发规则降级。
+
+## 安全设计
+
+- DeepSeek API Key 只从后端环境变量 `DEEPSEEK_API_KEY` 读取。
+- Key 不写入 Git、前端构建产物、接口响应或普通日志。
+- 日志不记录完整 Prompt、供应商原始响应或用户学习内容。
+- 所有业务查询和修改均限制当前登录用户。
+- AI 输出不会直接写库，必须通过后端校验并由用户确认。
+- AI 关闭、超时、限流、服务异常或输出非法时自动降级为规则计划。
+- CI 默认设置 `AI_ENABLED=false`，不会调用真实供应商。
+
+## 本地开发
+
+### 环境要求
+
+- JDK 17
 - Maven 3.9+
-- Node.js 20.19+ 或 22.12+
-- MySQL 8.0+
-- Redis 6+（Windows 可使用 Memurai）
+- Node.js 20+
+- MySQL 8
+- Redis 7（Windows 可使用 Memurai）
 
-数据库名为 `ai_study_planner`，字符集建议使用 `utf8mb4`。后端可通过以下环境变量配置：
+数据库名称为 `ai_study_planner`。可以复制后端示例配置：
+
+```powershell
+Copy-Item backend/src/main/resources/application-local.yml.example backend/application-local.yml
+```
+
+也可以直接设置环境变量，然后启动后端：
 
 ```powershell
 $env:DB_URL='jdbc:mysql://localhost:3306/ai_study_planner?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia%2FShanghai&allowPublicKeyRetrieval=true&useSSL=false'
-$env:DB_USERNAME='your_mysql_username'
-$env:DB_PASSWORD='your_mysql_password'
+$env:DB_USERNAME='root'
+$env:DB_PASSWORD='your-local-password'
 $env:REDIS_HOST='localhost'
-$env:REDIS_PORT='6379'
-$env:REDIS_DATABASE='0'
-$env:REDIS_PASSWORD=''
-```
-
-也可以将 `backend/src/main/resources/application-local.yml.example` 复制为 `backend/application-local.yml` 并填写本地配置。该文件已被 Git 忽略。Flyway 会在后端启动时执行尚未运行的迁移，不要修改已经执行过的迁移文件。
-
-## 本地启动与构建
-
-启动 MySQL 和 Redis/Memurai 后运行后端：
-
-```powershell
+$env:AI_ENABLED='false'
 cd backend
 mvn spring-boot:run
 ```
 
-安装依赖并启动前端：
+Flyway 会在后端启动时创建或校验数据库结构。另开终端启动前端：
 
 ```powershell
 cd frontend
-npm.cmd install
-npm.cmd run dev
+npm install
+npm run dev
 ```
 
-前端生产构建：
+本地访问地址为 `http://localhost:5173`，后端默认为 `http://localhost:8080`。
 
-```powershell
-cd frontend
-npm.cmd run build
-```
-
-默认后端地址为 `http://localhost:8080`，前端地址为 `http://localhost:5173`。可在 `frontend/.env.local` 中通过 `VITE_API_BASE_URL` 修改前端 API 地址。
-
-## 前端页面
-
-| 路径 | 页面 | 功能 |
-|---|---|---|
-| `/login` | 登录 | 登录并保存 Sa-Token |
-| `/register` | 注册 | 创建用户账号 |
-| `/` | 学习概览 | 科目、进行中目标、今日待办统计，含逾期任务快捷操作和未来 7 天到期任务 |
-| `/subjects` | 科目管理 | 科目列表、创建、编辑和删除 |
-| `/goals` | 学习目标 | 分页筛选、创建、编辑、状态变更、详情进度和删除 |
-| `/tasks` | 学习任务 | 多条件筛选、创建、编辑、状态变更、详情和删除 |
-| `/plans` | 学习计划 | AI智能规划与规则规划切换、草案调整确认、历史查询和执行状态跟踪 |
-| `/records` | 学习记录 | 分页筛选、创建、编辑、清空任务或反馈、详情和删除 |
-| `/statistics` | 数据统计 | 日期范围查询、统计概览、每日趋势和科目时长分布 |
-
-认证后的页面共用主布局。桌面端使用侧边导航，移动端使用抽屉导航。所有业务数据均来自真实后端接口，不使用模拟数据。
-
-## API 约定
-
-除注册和登录外，接口都需要携带 Sa-Token 返回的动态请求头，默认请求头名称为 `satoken`。统一响应结构：
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {},
-  "timestamp": 0
-}
-```
-
-目标和任务分页结果包含 `list`、`page`、`pageSize` 和 `total`；`page` 最小为 1，`pageSize` 范围为 1 至 100。
-
-### 认证接口
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/api/v1/auth/register` | 注册 |
-| POST | `/api/v1/auth/login` | 登录并返回 Token 与用户信息 |
-| POST | `/api/v1/auth/logout` | 退出当前登录 |
-| GET | `/api/v1/auth/me` | 获取当前用户 |
-
-### 学习科目接口
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/v1/subjects` | 当前用户的科目列表 |
-| GET | `/api/v1/subjects/{id}` | 科目详情 |
-| POST | `/api/v1/subjects` | 创建科目 |
-| PUT | `/api/v1/subjects/{id}` | 更新科目 |
-| DELETE | `/api/v1/subjects/{id}` | 删除无关联数据的科目 |
-
-科目写入字段为 `name`、`description`、`color`、`sortOrder`。
-
-### 学习目标接口
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/v1/goals` | 分页查询目标，可按 `subjectId`、`status` 筛选 |
-| GET | `/api/v1/goals/{id}` | 目标详情及任务完成率 |
-| POST | `/api/v1/goals` | 创建目标 |
-| PUT | `/api/v1/goals/{id}` | 更新目标基本信息 |
-| PATCH | `/api/v1/goals/{id}/status` | 单独修改目标状态 |
-| DELETE | `/api/v1/goals/{id}` | 删除无关联任务的目标 |
-
-目标状态包括 `ACTIVE`、`COMPLETED`、`CANCELLED`。普通更新接口不接收状态。
-
-### 学习任务接口
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/v1/tasks` | 分页查询任务，支持科目、目标、状态、优先级和计划日期筛选 |
-| GET | `/api/v1/tasks/{id}` | 任务详情 |
-| GET | `/api/v1/tasks/today` | 计划日期不晚于今天的未完成待办及预计总时长 |
-| GET | `/api/v1/tasks/upcoming?days=7` | 未来指定天数即将截止的任务 |
-| POST | `/api/v1/tasks` | 创建任务，初始状态为 `TODO` |
-| PUT | `/api/v1/tasks/{id}` | 更新任务基本信息 |
-| PATCH | `/api/v1/tasks/{id}/status` | 单独修改任务状态 |
-| DELETE | `/api/v1/tasks/{id}` | 删除无学习记录或计划项引用的任务 |
-
-任务状态包括 `TODO`、`IN_PROGRESS`、`COMPLETED`、`CANCELLED`，优先级为 1 至 4。普通创建和更新接口不接收 `status`、`completedAt`；完成时间由后端维护。
-
-### 学习计划接口
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/api/v1/plans/draft` | 根据未完成任务生成确定性规则草案，不写数据库 |
-| POST | `/api/v1/plans/confirm` | 重新校验草案并事务保存，相同 `draftId` 幂等 |
-| GET | `/api/v1/plans` | 按日期和状态分页查询当前用户计划 |
-| GET | `/api/v1/plans/{id}` | 查询计划及完整计划项 |
-| PATCH | `/api/v1/plans/{id}/status` | 取消已确认计划 |
-| PATCH | `/api/v1/plans/{planId}/items/{itemId}/status` | 完成、跳过或恢复计划项 |
-
-规则规划模式使用稳定规则生成：逾期和临近截止任务优先，其次按照优先级、计划日期、进行中状态和任务 ID 排序。草案只存在于接口响应和前端状态中，用户确认后才写入 `study_plan` 与 `study_plan_item`。计划项全部完成或跳过时计划自动完成，恢复任一计划项后计划回到已确认。计划项状态不会自动修改原学习任务状态。
-
-### AI 学习计划草案
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/api/v1/ai/plans/draft` | 使用 DeepSeek 生成结构化学习计划草案；AI 不可用或输出不合法时自动返回规则草案 |
-
-请求语义与 `/api/v1/plans/draft` 一致：
-
-```json
-{
-  "planDate": "2026-07-23",
-  "startTime": "09:00:00",
-  "availableMinutes": 180,
-  "requirement": "优先复习 Java 集合和数据库"
-}
-```
-
-响应会额外给出 `generatorType`、`provider`、`model`、`fallbackUsed` 和安全的 `fallbackReason`。`draft` 仍使用原有草案结构，可直接提交到 `POST /api/v1/plans/confirm`。AI 只选择候选任务、建议分钟数和理由；后端负责计算顺序及连续的起止时间，并校验任务归属、状态、重复项、时长和跨日约束。草案不会自动入库，必须由用户确认后保存。
-
-后端使用 Spring AI `1.1.8`，通过 OpenAI 兼容协议连接 DeepSeek，默认模型为 `deepseek-v4-flash`。当前 AI 规划会在请求顶层显式发送 `thinking.type=disabled`，使用非思考模式生成结构化计划。AI 默认关闭且 API Key 不写入仓库：
+如需在本地启用 AI，仅在服务端环境中设置：
 
 ```powershell
 $env:AI_ENABLED='true'
-$env:DEEPSEEK_API_KEY='your-key'
-$env:DEEPSEEK_BASE_URL='https://api.deepseek.com'
-$env:DEEPSEEK_COMPLETIONS_PATH='/chat/completions'
-$env:DEEPSEEK_MODEL='deepseek-v4-flash'
-$env:DEEPSEEK_TEMPERATURE='0.2'
-$env:DEEPSEEK_MAX_TOKENS='2500'
-$env:DEEPSEEK_TIMEOUT_SECONDS='45'
+$env:DEEPSEEK_API_KEY='your-real-key'
 ```
 
-未配置 Key 时应用仍能启动，AI 草案接口会自动使用现有规则生成器。模型超时、限流、服务异常、空响应、非法 JSON 或业务校验失败也会降级并正常返回可用草案，不暴露第三方原始异常。
+不要将真实 Key 写入任何配置文件或提交到仓库。
 
-`/plans` 页面默认使用“AI智能规划”，也可以主动切换为“规则规划”。AI成功时草案区域显示DeepSeek及模型信息；AI降级时显示安全的降级原因，但降级得到的规则草案仍可继续排序、调整时长、恢复原始结果并通过原确认接口保存。历史计划没有来源字段，因此历史列表不会推断或伪造AI来源。
+## Docker Compose 启动
 
-### 学习记录接口
+复制示例环境文件并修改示例密码：
 
-| 方法 | 路径 | 说明 |
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --build
+```
+
+Compose 会启动 MySQL、Redis、Spring Boot 和 Vue/Nginx，数据分别保存在命名 Volume 中。默认访问：
+
+- 前端：`http://localhost:5173`
+- 后端调试：`http://localhost:8080`
+
+默认 `AI_ENABLED=false`。需要 AI 时，在本地 `.env` 中填写：
+
+```dotenv
+AI_ENABLED=true
+DEEPSEEK_API_KEY=your-real-key
+```
+
+`.env` 已被 Git 忽略，`.env.example` 只包含安全示例值。
+
+## 环境变量
+
+| 变量 | 默认值/示例 | 说明 |
 |---|---|---|
-| GET | `/api/v1/records` | 分页查询当前用户学习记录 |
-| GET | `/api/v1/records/{id}` | 查询学习记录详情 |
-| POST | `/api/v1/records` | 创建学习记录并由后端计算时长 |
-| PUT | `/api/v1/records/{id}` | 更新学习记录并重新计算时长 |
-| DELETE | `/api/v1/records/{id}` | 删除当前用户学习记录 |
+| `DB_URL` | 本地 MySQL URL | JDBC连接地址；Compose固定连接`mysql`服务 |
+| `DB_USERNAME` | `ai_study` | 数据库业务用户 |
+| `DB_PASSWORD` | 示例值，必须修改 | 数据库业务密码 |
+| `MYSQL_ROOT_PASSWORD` | 示例值，必须修改 | Compose初始化MySQL使用 |
+| `REDIS_HOST` | `localhost` | Compose中为`redis` |
+| `REDIS_PORT` | `6379` | Redis端口 |
+| `AI_ENABLED` | `false` | 是否启用真实AI调用 |
+| `DEEPSEEK_API_KEY` | 空 | 仅后端读取的供应商Key |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek兼容接口地址 |
+| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | AI规划模型 |
+| `APP_CORS_ALLOWED_ORIGIN` | `http://localhost:5173` | 允许的前端来源 |
+| `FRONTEND_PORT` | `5173` | Compose前端宿主机端口 |
+| `BACKEND_PORT` | `8080` | Compose后端调试端口 |
 
-分页查询支持 `subjectId`、`taskId`、`startDate` 和 `endDate`。日期格式为 `YYYY-MM-DD`，记录按照开始时间和 ID 倒序返回。`startDate` 包含当天零点，`endDate` 包含当天整天。
+## 接口概览
 
-创建或更新示例：
+所有接口统一以 `/api/v1` 为前缀，除注册和登录外均需要 Sa-Token。
 
-```json
-{
-  "subjectId": 1,
-  "taskId": 10,
-  "startedAt": "2026-07-21T19:00:00",
-  "endedAt": "2026-07-21T20:15:00",
-  "feedback": "完成了极限章节练习"
-}
+| 模块 | 主要接口 |
+|---|---|
+| 认证 | `POST /auth/register`、`POST /auth/login`、`POST /auth/logout`、`GET /auth/me` |
+| 科目 | `/subjects` 增删改查 |
+| 目标 | `/goals` 增删改查和状态管理 |
+| 任务 | `/tasks` 增删改查、今日待办、临期查询和状态管理 |
+| 学习记录 | `/records` 分页、筛选、创建、更新和删除 |
+| 数据统计 | `/statistics/summary`、`/daily-trend`、`/subject-distribution` |
+| 规则草案 | `POST /plans/draft` |
+| AI草案 | `POST /ai/plans/draft` |
+| 计划 | `POST /plans/confirm`、`GET /plans`、详情及状态管理 |
+
+AI 与规则草案都复用 `POST /api/v1/plans/confirm` 保存，不存在第二套确认流程。
+
+## 项目结构
+
+```text
+AIStudyPlannerAgent/
+├─ .github/workflows/ci.yml
+├─ backend/
+│  ├─ src/main/java/com/yhk/aistudyplanner/
+│  ├─ src/main/resources/
+│  ├─ src/test/
+│  ├─ Dockerfile
+│  └─ pom.xml
+├─ frontend/
+│  ├─ src/
+│  ├─ Dockerfile
+│  ├─ nginx.conf
+│  └─ package.json
+├─ docker-compose.yml
+├─ .env.example
+└─ README.md
 ```
 
-调用方不能提交 `durationMinutes`。后端使用 `ChronoUnit.MINUTES` 计算学习时长，单条记录必须为 1 至 1440 分钟，结束时间不得晚于当前上海时间。创建记录不会自动完成关联任务。
+## 测试与持续集成
 
-返回示例：
-
-```json
-{
-  "id": 1,
-  "subjectId": 1,
-  "subjectName": "高等数学",
-  "subjectColor": "#409EFF",
-  "taskId": 10,
-  "taskTitle": "完成极限练习",
-  "startedAt": "2026-07-21T19:00:00",
-  "endedAt": "2026-07-21T20:15:00",
-  "durationMinutes": 75,
-  "feedback": "完成了极限章节练习"
-}
-```
-
-### 基础统计接口
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/v1/statistics/summary` | 总时长、记录数、活跃天数和平均时长 |
-| GET | `/api/v1/statistics/daily-trend` | 按日期升序返回每日学习趋势并补齐零值日期 |
-| GET | `/api/v1/statistics/subject-distribution` | 按学习时长返回科目分布和百分比 |
-
-三个接口统一支持 `startDate`、`endDate`。不传日期时默认查询包含今天的最近 7 天；开始、结束日期均包含，范围最多 366 天。统计仅计算当前登录用户的数据。
-
-概览返回示例：
-
-```json
-{
-  "startDate": "2026-07-15",
-  "endDate": "2026-07-21",
-  "totalMinutes": 420,
-  "recordCount": 8,
-  "activeDays": 5,
-  "averageDailyMinutes": 60.0,
-  "averageMinutesPerActiveDay": 84.0
-}
-```
-
-## 后端构建与测试
+本地验证命令：
 
 ```powershell
 cd backend
 mvn clean test
 mvn clean package
+
+cd ../frontend
+npm ci
+npm run build
 ```
 
-## 第三阶段 B 前端说明
+GitHub Actions 在推送到 `main` 或向 `main` 创建 Pull Request 时并行执行：
 
-学习记录页面沿用后端计算时长的原则。前端只提交科目、可选任务、开始时间、结束时间和反馈，不提交 `durationMinutes`。日期时间使用 `YYYY-MM-DDTHH:mm:ss` 本地格式，不使用 `toISOString()`。编辑时可以把任务改为“不关联任务”，也可以清空原反馈；前端会明确提交 `null`。
+- Java 17 后端全量测试和跳过测试的打包检查
+- Node.js 20 前端依赖安装、TypeScript检查和Vite生产构建
 
-前端会实时预览学习时长，并统一按北京时间检查结束时间晚于开始时间、至少 1 分钟、不超过 24 小时且不晚于当前时间。MVP 不允许记录跨越自然日；后端还会拒绝与当前用户已有记录重叠的时间段。最终校验和时长以后端为准。
+CI使用Maven/npm缓存，并保持AI关闭，不需要也不会读取真实DeepSeek Key。
 
-统计页面默认查询包含今天的最近 7 天，也支持最近 30 天、90 天和最多 366 天的自定义范围。三个统计接口分别维护加载和失败状态，单个接口失败不会阻塞整个页面。
+## 已知限制
 
-图表使用 ECharts，并从 `echarts/core` 按需注册折线图、柱状图、饼图、提示框、图例、网格和 Canvas 渲染器。每日趋势同时展示学习分钟和记录数；科目分布同时提供环形图与文本列表。
+- AI调用为非流式响应，尚未实现SSE。
+- 尚未实现Agent工具调用、Function Calling和多Agent。
+- 尚未实现RAG、向量数据库、MCP和AI会话历史。
+- 尚未支持多模型切换或用户自定义API Key。
+- AI/规则来源未持久化，历史计划不会显示或推断来源。
 
-当前已完成学习记录、基础统计、今日学习计划草案与确认保存的前端，以及 DeepSeek/Spring AI 非流式计划草案后端。后续仍未实现：
+## 后续规划
 
-- SSE 流式输出
-- Agent 工具调用与 Function Calling
-- RAG、MCP 和 AI 会话历史
+- 在业务稳定后评估SSE流式反馈。
+- 按实际需求评估受控Agent工具调用和会话历史。
+- 增加更完整的端到端测试与部署监控。
