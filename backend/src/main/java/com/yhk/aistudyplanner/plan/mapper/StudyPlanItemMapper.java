@@ -8,9 +8,19 @@ import java.util.List;
 @Mapper
 public interface StudyPlanItemMapper extends BaseMapper<StudyPlanItem> {
     @Select("""
+        SELECT * FROM study_plan_item
+        WHERE id=#{itemId} AND plan_id=#{planId} AND user_id=#{userId}
+        FOR UPDATE
+        """)
+    StudyPlanItem selectOwnedForUpdate(@Param("planId") long planId,
+                                       @Param("itemId") long itemId,
+                                       @Param("userId") long userId);
+
+    @Select("""
         SELECT i.id, i.sequence_no sequenceNo, i.task_id taskId, t.title taskTitle,
                t.subject_id subjectId, s.name subjectName, s.color subjectColor,
                i.start_at startAt, i.end_at endAt, i.planned_minutes plannedMinutes,
+               i.actual_minutes actualMinutes, i.feedback,
                i.reason, i.status
         FROM study_plan_item i
         INNER JOIN study_task t ON t.id=i.task_id AND t.user_id=#{userId}

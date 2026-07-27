@@ -46,6 +46,7 @@ public enum ErrorCode {
     PLAN_ALREADY_CANCELLED(40920, "学习计划已取消", HttpStatus.CONFLICT),
     INVALID_PLAN_STATUS_TRANSITION(40921, "不允许执行该计划状态变更", HttpStatus.CONFLICT),
     INVALID_PLAN_ITEM_STATUS_TRANSITION(40922, "不允许执行该计划项状态变更", HttpStatus.CONFLICT),
+    PLAN_EXECUTION_RECORD_LOCKED(40923, "计划执行产生的学习记录请通过计划项恢复操作撤销", HttpStatus.CONFLICT),
     AI_NOT_CONFIGURED(50310, "AI服务未配置", HttpStatus.SERVICE_UNAVAILABLE),
     AI_PROVIDER_TIMEOUT(50410, "AI服务调用超时", HttpStatus.GATEWAY_TIMEOUT),
     AI_PROVIDER_RATE_LIMITED(42910, "AI服务请求过于频繁", HttpStatus.TOO_MANY_REQUESTS),

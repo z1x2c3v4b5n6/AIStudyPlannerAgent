@@ -1,4 +1,4 @@
-export type PlanStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
+export type PlanStatus = 'CONFIRMED' | 'COMPLETED' | 'PARTIALLY_COMPLETED' | 'ABANDONED' | 'CANCELLED'
 export type PlanItemStatus = 'PENDING' | 'COMPLETED' | 'SKIPPED'
 export type PlanGeneratorType = 'AI' | 'RULE'
 export interface PlanDraftRequest { planDate:string; startTime:string; availableMinutes:number; requirement?:string|null; selectedSubjectIds:number[]; selectedTaskIds:number[] }
@@ -72,7 +72,8 @@ export interface SelectablePlanTask {
   recommended:boolean
 }
 export interface PlanConfirmRequest { draftId:string; planDate:string; availableMinutes:number; plannedMinutes:number; requirement?:string|null; summary:string; items:Array<Pick<PlanDraftItem,'sequenceNo'|'taskId'|'startAt'|'endAt'|'plannedMinutes'|'reason'>> }
-export interface PlanListItem { id:number; planDate:string; availableMinutes:number; plannedMinutes:number; requirement:string|null; summary:string; status:PlanStatus; totalItemCount:number; completedItemCount:number; skippedItemCount:number; pendingItemCount:number; completionPercentage:number; createdAt:string; updatedAt:string }
-export interface PlanItem extends PlanDraftItem { id:number; status:PlanItemStatus }
-export interface PlanDetail { id:number; sourceDraftId:string; planDate:string; availableMinutes:number; plannedMinutes:number; requirement:string|null; summary:string; status:PlanStatus; createdAt:string; updatedAt:string; items:PlanItem[] }
+export interface PlanListItem { id:number; planDate:string; availableMinutes:number; plannedMinutes:number; requirement:string|null; summary:string; status:PlanStatus; totalItemCount:number; completedItemCount:number; skippedItemCount:number; pendingItemCount:number; actualStudyMinutes:number; completionPercentage:number; createdAt:string; updatedAt:string }
+export interface PlanItem extends PlanDraftItem { id:number; actualMinutes:number|null; feedback:string|null; status:PlanItemStatus }
+export interface PlanDetail { id:number; sourceDraftId:string; planDate:string; availableMinutes:number; plannedMinutes:number; requirement:string|null; summary:string; status:PlanStatus; completedItemCount:number; skippedItemCount:number; pendingItemCount:number; actualStudyMinutes:number; completionPercentage:number; createdAt:string; updatedAt:string; items:PlanItem[] }
+export interface PlanItemCompleteRequest { actualMinutes:number; feedback?:string|null; completeTask:boolean }
 export interface PlanQuery { page:number; pageSize:number; startDate?:string; endDate?:string; status?:PlanStatus }

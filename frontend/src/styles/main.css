@@ -172,6 +172,12 @@ a { color: var(--primary); text-decoration: none; }
 .plan-timeline-item { display: grid; grid-template-columns: 34px minmax(180px,1fr) auto; align-items: start; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--border); }
 .plan-item-buttons { grid-column: 2 / -1; }
 .plan-item-content small { color: #64748b; }
+.execution-timeline .execution-result { color: #047857; font-weight: 600; }
+.completion-dialog-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-bottom: 18px; }
+.completion-dialog-summary > div { display: grid; gap: 4px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+.completion-dialog-summary span { color: #64748b; font-size: 12px; }
+.completion-dialog-summary strong { color: #1e293b; overflow-wrap: anywhere; }
+.completion-task-hint { width: 100%; margin-top: 5px; color: #64748b; font-size: 12px; line-height: 1.5; }
 @media (max-width: 1000px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1200px) { .statistics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .statistics-chart-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .plan-builder { grid-template-columns: 1fr; } }
@@ -223,6 +229,7 @@ a { color: var(--primary); text-decoration: none; }
   .generate-plan-row .el-button { width: 100%; }
   .plan-action-reason { text-align: left; }
   .plan-capacity { gap: 8px; }
+  .completion-dialog-summary { grid-template-columns: 1fr; }
   .plan-capacity > div { padding: 12px 10px; }
   .plan-capacity strong { font-size: 15px; }
 }

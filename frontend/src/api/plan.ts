@@ -1,6 +1,6 @@
 import http from './http'
 import type { ApiResponse, PageResponse } from '../types/api'
-import type { AiPlanDraftResult, CandidateTasksRequest, NaturalLanguagePlanParseRequest, NaturalLanguagePlanParseResult, PlanConfirmRequest, PlanDetail, PlanDraft, PlanDraftRequest, PlanItemStatus, PlanListItem, PlanQuery, PlanStatus, QuickCreatePlanTaskRequest, QuickCreatePlanTaskResult, SelectablePlanTask } from '../types/plan'
+import type { AiPlanDraftResult, CandidateTasksRequest, NaturalLanguagePlanParseRequest, NaturalLanguagePlanParseResult, PlanConfirmRequest, PlanDetail, PlanDraft, PlanDraftRequest, PlanItemCompleteRequest, PlanItemStatus, PlanListItem, PlanQuery, PlanStatus, QuickCreatePlanTaskRequest, QuickCreatePlanTaskResult, SelectablePlanTask } from '../types/plan'
 const AI_REQUEST_TIMEOUT = 75000
 export const planApi = {
   generateDraft:(payload:PlanDraftRequest)=>http.post<ApiResponse<PlanDraft>>('/plans/draft',payload),
@@ -12,5 +12,6 @@ export const planApi = {
   list:(params:PlanQuery)=>http.get<ApiResponse<PageResponse<PlanListItem>>>('/plans',{params}),
   get:(id:number)=>http.get<ApiResponse<PlanDetail>>(`/plans/${id}`),
   changeStatus:(id:number,status:PlanStatus)=>http.patch<ApiResponse<PlanDetail>>(`/plans/${id}/status`,{status}),
+  completeItem:(planId:number,itemId:number,payload:PlanItemCompleteRequest)=>http.post<ApiResponse<PlanDetail>>(`/plans/${planId}/items/${itemId}/complete`,payload),
   changeItemStatus:(planId:number,itemId:number,status:PlanItemStatus)=>http.patch<ApiResponse<PlanDetail>>(`/plans/${planId}/items/${itemId}/status`,{status}),
 }
