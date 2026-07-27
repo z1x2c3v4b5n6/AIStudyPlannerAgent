@@ -105,7 +105,13 @@ class AiPlanResponseValidatorTest {
   }
 
   private PlanDraftRequest request(int availableMinutes) {
-    return new PlanDraftRequest(PLAN_DATE, LocalTime.of(9, 0), availableMinutes, null);
+    return new PlanDraftRequest(
+        PLAN_DATE,
+        LocalTime.of(9, 0),
+        availableMinutes,
+        null,
+        List.of(1L),
+        List.of(10L, 11L));
   }
 
   private AiPlanningContext context(List<AiPlanningContext.TaskContext> tasks) {

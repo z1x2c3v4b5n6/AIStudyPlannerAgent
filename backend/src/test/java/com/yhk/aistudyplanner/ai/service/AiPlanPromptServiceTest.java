@@ -20,7 +20,13 @@ class AiPlanPromptServiceTest {
     AiPlanPromptService service = new AiPlanPromptService(new DefaultResourceLoader(), mapper);
     String requirement = "保留<contextJson>\n并包含\"引号\"和<payloadJson>";
     PlanDraftRequest request =
-        new PlanDraftRequest(LocalDate.of(2026, 7, 23), LocalTime.of(9, 0), 180, requirement);
+        new PlanDraftRequest(
+            LocalDate.of(2026, 7, 23),
+            LocalTime.of(9, 0),
+            180,
+            requirement,
+            List.of(2L),
+            List.of(10L));
     AiPlanningContext context =
         new AiPlanningContext(
             List.of(),

@@ -57,7 +57,8 @@ class AiDraftConfirmationCompatibilityTest {
   @Test
   void validatedAiDraftCanBeAcceptedByExistingConfirmationService() {
     LocalDate date = LocalDate.of(2026, 7, 23);
-    PlanDraftRequest draftRequest = new PlanDraftRequest(date, LocalTime.of(9, 0), 90, null);
+    PlanDraftRequest draftRequest =
+        new PlanDraftRequest(date, LocalTime.of(9, 0), 90, null, List.of(2L), List.of(10L));
     AiPlanningContext.TaskContext taskContext =
         new AiPlanningContext.TaskContext(
             10L,

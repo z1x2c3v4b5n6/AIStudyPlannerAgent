@@ -50,7 +50,7 @@ public class AiPlanService {
   public AiPlanDraftView generate(PlanDraftRequest request) {
     validateRequest(request);
     long userId = session.currentUserId();
-    var context = contextService.build(userId, request.planDate());
+    var context = restrictContext(request, contextService.build(userId, request.planDate()));
     if (context.tasks().isEmpty())
       return response("RULE", false, null, rules.generate(userId, request));
     if (!properties.configured() || gateway.getIfAvailable() == null)
@@ -95,6 +95,41 @@ public class AiPlanService {
           ErrorCode.AI_PROVIDER_UNAVAILABLE.name());
       return fallback(userId, request, ErrorCode.AI_PROVIDER_UNAVAILABLE);
     }
+  }
+
+  private AiPlanningContext restrictContext(
+      PlanDraftRequest request, AiPlanningContext context) {
+    var subjectIds = new java.util.LinkedHashSet<>(request.selectedSubjectIds());
+    var taskIds = new java.util.LinkedHashSet<>(request.selectedTaskIds());
+    if (subjectIds.size() != request.selectedSubjectIds().size()
+        || taskIds.size() != request.selectedTaskIds().size()) {
+      throw new BusinessException(ErrorCode.PLAN_TASK_DUPLICATED);
+    }
+    var ownedSubjectIds =
+        context.subjects().stream()
+            .map(AiPlanningContext.SubjectContext::id)
+            .collect(java.util.stream.Collectors.toSet());
+    if (!ownedSubjectIds.containsAll(subjectIds)) {
+      throw new BusinessException(ErrorCode.SUBJECT_ACCESS_DENIED);
+    }
+    var selectedTasks =
+        context.tasks().stream()
+            .filter(task -> taskIds.contains(task.id()) && subjectIds.contains(task.subjectId()))
+            .toList();
+    if (selectedTasks.size() != taskIds.size()) {
+      throw new BusinessException(ErrorCode.PLAN_TASK_INVALID);
+    }
+    return new AiPlanningContext(
+        context.subjects().stream().filter(subject -> subjectIds.contains(subject.id())).toList(),
+        context.goals().stream().filter(goal -> subjectIds.contains(goal.subjectId())).toList(),
+        selectedTasks,
+        context.recentSummary(),
+        context.subjectStudy().stream()
+            .filter(study -> subjectIds.contains(study.subjectId()))
+            .toList(),
+        context.recentRecords().stream()
+            .filter(record -> subjectIds.contains(record.subjectId()))
+            .toList());
   }
 
   private void validateRequest(PlanDraftRequest r) {
