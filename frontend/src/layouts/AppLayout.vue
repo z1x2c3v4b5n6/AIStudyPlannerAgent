@@ -15,7 +15,7 @@ const navItems = [
   { path: '/tasks', label: '学习任务' },
   { path: '/plans', label: '学习计划' },
   { path: '/records', label: '学习记录' },
-  { path: '/statistics', label: '数据统计' },
+  { path: '/statistics', label: '数据统计' }
 ]
 
 async function logout() {
@@ -26,29 +26,73 @@ async function logout() {
 
 <template>
   <div class="app-shell">
-    <aside class="app-sidebar">
-      <div class="brand">AI 学习规划</div>
-      <nav>
-        <router-link v-for="item in navItems" :key="item.path" :to="item.path" :class="{ active: route.path === item.path }">
-          {{ item.label }}
+    <header class="app-topbar">
+      <div class="app-header">
+        <button
+          class="mobile-menu-button"
+          type="button"
+          aria-label="打开导航"
+          @click="mobileMenuVisible = true"
+        >
+          ☰
+        </button>
+
+        <router-link to="/" class="topbar-brand">
+          <span class="brand-mark">AI</span>
+          <strong>AI学习规划</strong>
         </router-link>
-      </nav>
-    </aside>
-    <div class="app-main">
-      <header class="app-header">
-        <button class="mobile-menu-button" type="button" aria-label="打开导航" @click="mobileMenuVisible = true">☰</button>
-        <strong>AI 学习规划</strong>
-        <div class="user-actions">
-          <span>{{ authStore.user?.nickname || authStore.user?.username }}</span>
-          <el-button text @click="logout">退出登录</el-button>
-        </div>
-      </header>
-      <main class="content"><router-view /></main>
-    </div>
-    <el-drawer v-model="mobileMenuVisible" direction="ltr" size="240px" :with-header="false">
-      <div class="brand mobile-brand">AI 学习规划</div>
+
+        <nav class="desktop-top-nav" aria-label="主导航">
+          <router-link
+            v-for="item in navItems"
+            :key="item.path"
+            :to="item.path"
+            :class="{ active: route.path === item.path }"
+          >
+            {{ item.label }}
+          </router-link>
+        </nav>
+
+        <el-dropdown trigger="click">
+          <button class="user-menu-button" type="button">
+            <span class="user-avatar">
+              {{ (authStore.user?.nickname || authStore.user?.username || '用').slice(0, 1) }}
+            </span>
+            <span class="user-name">
+              {{ authStore.user?.nickname || authStore.user?.username }}
+            </span>
+          </button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </header>
+
+    <main class="content">
+      <router-view />
+    </main>
+
+    <el-drawer
+      v-model="mobileMenuVisible"
+      direction="ltr"
+      size="260px"
+      :with-header="false"
+    >
+      <div class="mobile-brand">
+        <span class="brand-mark">AI</span>
+        <strong>AI学习规划</strong>
+      </div>
       <nav class="mobile-nav">
-        <router-link v-for="item in navItems" :key="item.path" :to="item.path" :class="{ active: route.path === item.path }" @click="mobileMenuVisible = false">
+        <router-link
+          v-for="item in navItems"
+          :key="item.path"
+          :to="item.path"
+          :class="{ active: route.path === item.path }"
+          @click="mobileMenuVisible = false"
+        >
           {{ item.label }}
         </router-link>
       </nav>
