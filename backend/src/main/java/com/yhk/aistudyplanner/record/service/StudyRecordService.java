@@ -87,7 +87,8 @@ public class StudyRecordService {
     @Transactional
     public StudyRecordView update(long id, RecordUpdateRequest request) {
         long userId = sessionService.currentUserId();
-        requireOwned(id, userId);
+        StudyRecord existing = requireOwned(id, userId);
+        ensureManuallyEditable(existing);
         validateAssociations(userId, request.subjectId(), request.taskId());
         int duration = validateAndCalculateDuration(request.startedAt(), request.endedAt());
         ensureNoOverlap(userId, request.startedAt(), request.endedAt(), id);
@@ -110,7 +111,8 @@ public class StudyRecordService {
     @Transactional
     public void delete(long id) {
         long userId = sessionService.currentUserId();
-        requireOwned(id, userId);
+        StudyRecord existing = requireOwned(id, userId);
+        ensureManuallyEditable(existing);
         int deleted = recordMapper.delete(new LambdaQueryWrapper<StudyRecord>()
                 .eq(StudyRecord::getId, id).eq(StudyRecord::getUserId, userId));
         if (deleted != 1) throw new BusinessException(ErrorCode.RECORD_NOT_FOUND);
@@ -139,6 +141,12 @@ public class StudyRecordService {
         if (record != null) return record;
         if (recordMapper.selectById(id) != null) throw new BusinessException(ErrorCode.RECORD_ACCESS_DENIED);
         throw new BusinessException(ErrorCode.RECORD_NOT_FOUND);
+    }
+
+    private void ensureManuallyEditable(StudyRecord record) {
+        if (record.getPlanItemId() != null) {
+            throw new BusinessException(ErrorCode.PLAN_EXECUTION_RECORD_LOCKED);
+        }
     }
 
     private int validateAndCalculateDuration(LocalDateTime startedAt, LocalDateTime endedAt) {

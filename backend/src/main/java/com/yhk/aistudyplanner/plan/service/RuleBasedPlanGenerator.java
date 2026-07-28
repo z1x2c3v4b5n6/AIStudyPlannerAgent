@@ -20,8 +20,17 @@ public class RuleBasedPlanGenerator {
         LocalDateTime limit=cursor.plusMinutes(request.availableMinutes());
         if(!limit.toLocalDate().equals(request.planDate()))
             throw new BusinessException(ErrorCode.INVALID_PLAN_TIME);
+        Set<Long> subjectIds=new LinkedHashSet<>(request.selectedSubjectIds());
+        Set<Long> taskIds=new LinkedHashSet<>(request.selectedTaskIds());
+        if(subjectIds.size()!=request.selectedSubjectIds().size()||taskIds.size()!=request.selectedTaskIds().size())
+            throw new BusinessException(ErrorCode.PLAN_TASK_DUPLICATED);
+        List<PlanTaskCandidate> candidates=mapper.selectCandidates(userId,request.planDate(),request.planDate().atStartOfDay());
+        Set<Long> ownedSubjectIds=candidates.stream().map(PlanTaskCandidate::subjectId).collect(java.util.stream.Collectors.toSet());
+        if(!ownedSubjectIds.containsAll(subjectIds)) throw new BusinessException(ErrorCode.SUBJECT_ACCESS_DENIED);
+        List<PlanTaskCandidate> selected=candidates.stream().filter(task->taskIds.contains(task.taskId())&&subjectIds.contains(task.subjectId())).toList();
+        if(selected.size()!=taskIds.size()) throw new BusinessException(ErrorCode.PLAN_TASK_INVALID);
         List<PlanDraftItemView> items=new ArrayList<>(); int remaining=request.availableMinutes();
-        for(PlanTaskCandidate task:mapper.selectCandidates(userId,request.planDate(),request.planDate().atStartOfDay())){
+        for(PlanTaskCandidate task:selected){
             if(remaining<15) break;
             int minutes=Math.min(Math.max(15,task.estimatedMinutes()),remaining);
             LocalDateTime end=cursor.plusMinutes(minutes);

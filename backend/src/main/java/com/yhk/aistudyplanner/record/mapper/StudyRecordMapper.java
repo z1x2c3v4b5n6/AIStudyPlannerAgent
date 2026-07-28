@@ -14,6 +14,14 @@ import java.time.LocalDateTime;
 @Mapper
 public interface StudyRecordMapper extends BaseMapper<StudyRecord> {
     @Select("""
+            SELECT * FROM study_record
+            WHERE user_id=#{userId} AND plan_id=#{planId} AND plan_item_id=#{planItemId}
+            """)
+    StudyRecord selectByPlanItem(@Param("userId") long userId,
+                                 @Param("planId") long planId,
+                                 @Param("planItemId") long planItemId);
+
+    @Select("""
             <script>
             SELECT r.id, r.subject_id AS subjectId, s.name AS subjectName, s.color AS subjectColor,
                    r.task_id AS taskId, t.title AS taskTitle, r.started_at AS startedAt,
