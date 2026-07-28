@@ -32,6 +32,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -175,14 +176,13 @@ public class StudyPlanService {
         if (item.getStatus() != PlanItemStatus.PENDING) {
             throw new BusinessException(ErrorCode.INVALID_PLAN_ITEM_STATUS_TRANSITION);
         }
-        validateActualMinutes(item, request.actualMinutes());
         StudyTask task = taskMapper.selectOwnedForUpdate(item.getTaskId(), userId);
         if (task == null) throw new BusinessException(ErrorCode.PLAN_TASK_INVALID);
 
         LocalDateTime now = LocalDateTime.now(clock);
-        LocalDateTime recordStartedAt = item.getStartAt();
-        LocalDateTime recordEndedAt = recordStartedAt.plusMinutes(request.actualMinutes());
-        validateExecutionTime(recordStartedAt, recordEndedAt, now);
+        LocalDateTime recordStartedAt = request.actualStartAt();
+        LocalDateTime recordEndedAt = request.actualEndAt();
+        int actualMinutes = validateAndCalculateActualMinutes(recordStartedAt, recordEndedAt, now);
         if (recordMapper.countOverlapping(userId, recordStartedAt, recordEndedAt, null) > 0) {
             throw new BusinessException(ErrorCode.RECORD_TIME_OVERLAP);
         }
@@ -209,7 +209,7 @@ public class StudyPlanService {
                     task,
                     recordStartedAt,
                     recordEndedAt,
-                    request.actualMinutes(),
+                    actualMinutes,
                     request.feedback(),
                     now);
         }
@@ -223,7 +223,7 @@ public class StudyPlanService {
                                 .eq(StudyPlanItem::getUserId, userId)
                                 .eq(StudyPlanItem::getStatus, PlanItemStatus.PENDING)
                                 .set(StudyPlanItem::getStatus, PlanItemStatus.COMPLETED)
-                                .set(StudyPlanItem::getActualMinutes, request.actualMinutes())
+                                .set(StudyPlanItem::getActualMinutes, actualMinutes)
                                 .set(StudyPlanItem::getFeedback, trimToNull(request.feedback()))
                                 .set(
                                         StudyPlanItem::getTaskStatusBeforeCompletion,
@@ -425,19 +425,7 @@ public class StudyPlanService {
         }
     }
 
-    private void validateActualMinutes(StudyPlanItem item, Integer actualMinutes) {
-        if (actualMinutes == null
-                || actualMinutes < 1
-                || actualMinutes > MAX_ACTUAL_MINUTES) {
-            throw new BusinessException(ErrorCode.INVALID_RECORD_DURATION);
-        }
-        LocalDateTime endedAt = item.getStartAt().plusMinutes(actualMinutes);
-        if (!item.getStartAt().toLocalDate().equals(endedAt.toLocalDate())) {
-            throw new BusinessException(ErrorCode.RECORD_CROSSES_DAY);
-        }
-    }
-
-    private void validateExecutionTime(
+    private int validateAndCalculateActualMinutes(
             LocalDateTime startedAt, LocalDateTime endedAt, LocalDateTime now) {
         if (!endedAt.isAfter(startedAt)) {
             throw new BusinessException(ErrorCode.INVALID_RECORD_TIME);
@@ -445,6 +433,17 @@ public class StudyPlanService {
         if (endedAt.isAfter(now)) {
             throw new BusinessException(ErrorCode.RECORD_END_TIME_IN_FUTURE);
         }
+        if (!startedAt.toLocalDate().equals(endedAt.toLocalDate())) {
+            throw new BusinessException(ErrorCode.RECORD_CROSSES_DAY);
+        }
+        if (endedAt.isAfter(startedAt.plusMinutes(MAX_ACTUAL_MINUTES))) {
+            throw new BusinessException(ErrorCode.INVALID_RECORD_DURATION);
+        }
+        long actualMinutes = ChronoUnit.MINUTES.between(startedAt, endedAt);
+        if (actualMinutes < 1 || actualMinutes > MAX_ACTUAL_MINUTES) {
+            throw new BusinessException(ErrorCode.INVALID_RECORD_DURATION);
+        }
+        return Math.toIntExact(actualMinutes);
     }
 
     private void validateConfirm(long userId, PlanConfirmRequest request) {

@@ -75,5 +75,5 @@ export interface PlanConfirmRequest { draftId:string; planDate:string; available
 export interface PlanListItem { id:number; planDate:string; availableMinutes:number; plannedMinutes:number; requirement:string|null; summary:string; status:PlanStatus; totalItemCount:number; completedItemCount:number; skippedItemCount:number; pendingItemCount:number; actualStudyMinutes:number; completionPercentage:number; createdAt:string; updatedAt:string }
 export interface PlanItem extends PlanDraftItem { id:number; actualMinutes:number|null; feedback:string|null; status:PlanItemStatus }
 export interface PlanDetail { id:number; sourceDraftId:string; planDate:string; availableMinutes:number; plannedMinutes:number; requirement:string|null; summary:string; status:PlanStatus; completedItemCount:number; skippedItemCount:number; pendingItemCount:number; actualStudyMinutes:number; completionPercentage:number; createdAt:string; updatedAt:string; items:PlanItem[] }
-export interface PlanItemCompleteRequest { actualMinutes:number; feedback?:string|null; completeTask:boolean }
+export interface PlanItemCompleteRequest { actualStartAt:string; actualEndAt:string; feedback?:string|null; completeTask:boolean }
 export interface PlanQuery { page:number; pageSize:number; startDate?:string; endDate?:string; status?:PlanStatus }

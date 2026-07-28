@@ -54,6 +54,7 @@ const quickCreating = ref(false)
 const confirming = ref(false)
 const tasksLoading = ref(false)
 const candidateTasks = ref<SelectablePlanTask[]>([])
+const scopeVisible = ref(false)
 
 const remaining = computed(() =>
   draft.value ? draft.value.availableMinutes - draft.value.plannedMinutes : 0,
@@ -74,11 +75,6 @@ const generateDisabledReason = computed(() => {
   if (generating.value || quickCreating.value) return '正在处理，请勿重复提交'
   return ''
 })
-const emptyDescription = computed(() =>
-  generationMode.value === 'AI'
-    ? '描述你想怎么学习，确认 AI 的理解后生成计划'
-    : '填写学习需求或高级设置后生成规则计划',
-)
 const taskGroups = computed(() => {
   const groups = new Map<number, { subjectName: string; subjectColor: string | null; tasks: SelectablePlanTask[] }>()
   candidateTasks.value.forEach((task) => {
@@ -91,6 +87,31 @@ const taskGroups = computed(() => {
     groups.set(task.subjectId, group)
   })
   return [...groups.entries()].map(([subjectId, group]) => ({ subjectId, ...group }))
+})
+const selectedSubjects = computed(() =>
+  parsed.value?.candidateSubjects.filter((subject) =>
+    form.selectedSubjectIds.includes(subject.subjectId),
+  ) || [],
+)
+const selectedSubjectLabel = computed(() => {
+  const names = selectedSubjects.value.map((subject) => subject.subjectName)
+  if (!names.length) return '尚未确定学习科目'
+  return names.length > 2 ? `${names.slice(0, 2).join('、')} 等 ${names.length} 个科目` : names.join('、')
+})
+const scopeHint = computed(() => {
+  if (!parsed.value) return '生成后可按需调整科目和任务'
+  if (parsed.value.needsSubjectSelection) return '存在科目歧义，请确认学习范围'
+  if (form.selectedTaskIds.length) return `已选择 ${form.selectedTaskIds.length} 个任务`
+  if (form.selectedSubjectIds.length) return '将优先使用所选科目的推荐任务'
+  return 'AI 将根据需求推荐学习范围'
+})
+const scopeApplyDisabled = computed(
+  () => !form.selectedSubjectIds.length || !form.selectedTaskIds.length,
+)
+const scopeApplyHint = computed(() => {
+  if (!form.selectedSubjectIds.length) return '请先选择至少一个有待办任务的科目'
+  if (!form.selectedTaskIds.length) return '请加载任务并至少选择一个任务'
+  return `将应用 ${form.selectedSubjectIds.length} 个科目、${form.selectedTaskIds.length} 个任务`
 })
 
 function clone(value: PlanDraft) {
@@ -180,6 +201,15 @@ function selectRecommendedSubjects() {
     .map((subject) => subject.subjectId)
 }
 
+function toggleSubject(subjectId: number, disabled = false) {
+  if (disabled) return
+  form.selectedSubjectIds = form.selectedSubjectIds.includes(subjectId)
+    ? form.selectedSubjectIds.filter((id) => id !== subjectId)
+    : [...form.selectedSubjectIds, subjectId]
+  candidateTasks.value = []
+  form.selectedTaskIds = []
+}
+
 async function loadCandidateTasks() {
   if (!form.selectedSubjectIds.length) {
     return ElMessage.warning('请至少选择一个有待办任务的科目')
@@ -219,6 +249,24 @@ function selectAllTasks() {
 
 function clearSelectedTasks() {
   form.selectedTaskIds = []
+}
+
+async function openScope() {
+  scopeVisible.value = true
+  if (form.selectedSubjectIds.length && !candidateTasks.value.length) {
+    await loadCandidateTasks()
+  }
+}
+
+function applyScope() {
+  if (!form.selectedSubjectIds.length) {
+    return ElMessage.warning('请至少选择一个有待办任务的科目')
+  }
+  if (candidateTasks.value.length && !form.selectedTaskIds.length) {
+    return ElMessage.warning('请至少选择一个要安排的任务')
+  }
+  scopeVisible.value = false
+  ElMessage.success('学习范围已更新')
 }
 
 function recalculate() {
@@ -408,7 +456,8 @@ async function generate() {
 
   if (!form.selectedSubjectIds.length) {
     if (parsed.value?.ambiguousTopics.length && parsed.value.candidateSubjects.length > 1) {
-      return ElMessage.warning('请先确认要学习的科目，或选择“全部相关科目”')
+      scopeVisible.value = true
+      return ElMessage.warning('请在右侧抽屉中确认要学习的科目')
     }
     if (parsed.value?.candidateSubjects.length === 1) {
       form.selectedSubjectIds = [parsed.value.candidateSubjects[0].subjectId]
@@ -514,7 +563,7 @@ async function confirm() {
       </div>
 
       <div class="natural-plan-actions">
-        <el-button type="primary" size="large" :loading="parsing" :disabled="parsing || generating" @click="parseRequirement">
+        <el-button type="primary" plain :loading="parsing" :disabled="parsing || generating" @click="parseRequirement">
           理解我的需求
         </el-button>
         <span>优先使用已有待办；没有匹配内容时，可经你确认后一键创建科目和任务。</span>
@@ -533,145 +582,41 @@ async function confirm() {
           :closable="false"
           show-icon
         />
-        <div class="understanding-grid">
-          <el-form-item label="日期">
-            <el-date-picker v-model="form.planDate" type="date" value-format="YYYY-MM-DD" class="full-width" />
-          </el-form-item>
-          <el-form-item label="开始时间（北京时间）">
-            <el-time-picker v-model="form.startTime" value-format="HH:mm:ss" class="full-width" />
-          </el-form-item>
-          <el-form-item label="学习时长（分钟）">
-            <el-input-number v-model="form.availableMinutes" :min="1" :max="720" class="full-width" />
-          </el-form-item>
+        <div class="understanding-summary">
+          <span><small>日期</small><strong>{{ form.planDate }}</strong></span>
+          <span><small>开始</small><strong>{{ form.startTime.slice(0, 5) }}</strong></span>
+          <span><small>可用时长</small><strong>{{ minutesLabel(form.availableMinutes) }}</strong></span>
+          <span class="understanding-focus">
+            <small>重点与节奏</small>
+            <strong>{{ form.requirement || form.preferences.join('、') || '按任务优先级合理安排' }}</strong>
+          </span>
         </div>
-        <el-form-item label="重点内容和顺序">
-          <el-input v-model="form.requirement" type="textarea" :rows="2" maxlength="1000" />
-        </el-form-item>
-        <el-form-item label="节奏或偏好">
-          <el-select
-            v-model="form.preferences"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            placeholder="例如：轻松一点、先难后易"
-            class="full-width"
-          />
-        </el-form-item>
       </div>
 
-      <div v-if="parsed" class="subject-confirmation">
-        <div class="selection-section-heading">
+      <div v-if="parsed" class="scope-summary-card">
+        <div class="scope-summary-main">
+          <span class="scope-icon" aria-hidden="true">◎</span>
           <div>
-            <span class="selection-step">2</span>
-            <div>
-              <strong>确认学习科目</strong>
-              <p v-if="parsed.ambiguousTopics.length">
-                你提到的“{{ parsed.ambiguousTopics.join('、') }}”可能对应多个科目，请确认。
-              </p>
-              <p v-else>精确或唯一匹配已默认选择，你仍然可以修改。</p>
-            </div>
+            <small>学习范围</small>
+            <strong>{{ selectedSubjectLabel }}</strong>
+            <p>{{ scopeHint }}</p>
           </div>
-          <span>已选 {{ form.selectedSubjectIds.length }} 个</span>
         </div>
+        <el-button type="primary" plain @click="openScope">调整学习范围</el-button>
+      </div>
 
-        <el-alert
-          v-if="parsed.unmatchedKeywords.length"
-          :title="`未找到与“${parsed.unmatchedKeywords.join('、')}”相关的科目，不会使用无关任务。`"
-          type="warning"
-          :closable="false"
-          show-icon
-        />
-        <div v-if="parsed.unmatchedKeywords.length" class="quick-create-entry">
-          <div>
-            <strong>没有找到匹配的待办任务</strong>
-            <span>可按当前主题快速创建真实科目和任务，并立即生成计划。</span>
-          </div>
-          <el-button
-            type="primary"
-            :loading="quickCreating || generating"
-            @click="quickCreateAndGenerate"
-          >
-            一键创建并生成计划
-          </el-button>
-        </div>
-
-        <div v-if="parsed.candidateSubjects.length" class="subject-selection-actions">
-          <el-button size="small" @click="selectAllRelatedSubjects">全部相关科目</el-button>
-          <el-button size="small" @click="selectRecommendedSubjects">按当前进度推荐</el-button>
-        </div>
-        <el-checkbox-group v-model="form.selectedSubjectIds" class="subject-choice-list">
-          <label
-            v-for="subject in parsed.candidateSubjects"
-            :key="subject.subjectId"
-            class="subject-choice"
-            :class="{ disabled: subject.pendingTaskCount === 0 }"
-          >
-            <el-checkbox :value="subject.subjectId" :disabled="subject.pendingTaskCount === 0" />
-            <span class="color-dot" :style="{ backgroundColor: subject.subjectColor || '#94a3b8' }" />
-            <span class="subject-choice-main">
-              <strong>{{ subject.subjectName }}</strong>
-              <small>{{ subject.matchReason }}</small>
-            </span>
-            <el-tag v-if="subject.recommended" size="small" type="success">推荐</el-tag>
-            <span class="subject-task-count">
-              {{ subject.pendingTaskCount ? `${subject.pendingTaskCount} 个待办任务` : '没有可用任务' }}
-            </span>
-          </label>
-        </el-checkbox-group>
-        <el-empty
-          v-if="!parsed.candidateSubjects.length"
-          description="没有匹配的科目，可使用上方一键创建，或调整学习主题"
-          :image-size="70"
-        />
-        <el-button
-          type="primary"
-          plain
-          :loading="tasksLoading"
-          :disabled="!form.selectedSubjectIds.length"
-          @click="loadCandidateTasks"
-        >
-          确认科目并查看任务
+      <el-alert
+        v-if="parsed?.unmatchedKeywords.length"
+        :title="`没有找到与“${parsed.unmatchedKeywords.join('、')}”相关的待办任务，不会使用无关内容。`"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="compact-plan-alert"
+      >
+        <el-button link type="primary" :loading="quickCreating || generating" @click="quickCreateAndGenerate">
+          一键创建并生成计划
         </el-button>
-      </div>
-
-      <div v-if="candidateTasks.length || tasksLoading" v-loading="tasksLoading" class="task-confirmation">
-        <div class="selection-section-heading">
-          <div>
-            <span class="selection-step">3</span>
-            <div><strong>选择要安排的任务</strong><p>推荐只是排序依据，最终由你决定哪些任务进入计划。</p></div>
-          </div>
-          <span>已选 {{ form.selectedTaskIds.length }} / {{ candidateTasks.length }}</span>
-        </div>
-        <div class="task-selection-actions">
-          <el-button size="small" @click="selectAllTasks">全选</el-button>
-          <el-button size="small" @click="clearSelectedTasks">清空</el-button>
-        </div>
-        <el-checkbox-group v-model="form.selectedTaskIds" class="selectable-task-groups">
-          <section v-for="group in taskGroups" :key="group.subjectId" class="selectable-task-group">
-            <header>
-              <span class="color-dot" :style="{ backgroundColor: group.subjectColor || '#94a3b8' }" />
-              <strong>{{ group.subjectName }}</strong>
-              <small>{{ group.tasks.length }} 个可用任务</small>
-            </header>
-            <label v-for="task in group.tasks" :key="task.taskId" class="selectable-task">
-              <el-checkbox :value="task.taskId" />
-              <span class="selectable-task-main">
-                <strong>{{ task.taskTitle }}</strong>
-                <small>
-                  {{ task.goalTitle || '未关联目标' }} · 预计 {{ minutesLabel(task.estimatedMinutes) }}
-                  <template v-if="task.deadline"> · 截止 {{ formatDateTime(task.deadline) }}</template>
-                </small>
-                <em>{{ task.matchReason }}</em>
-              </span>
-              <el-tag v-if="task.recommended" size="small" type="success">推荐</el-tag>
-              <el-tag size="small" :type="priorityMap[task.priority].type">
-                {{ priorityMap[task.priority].label }}
-              </el-tag>
-            </label>
-          </section>
-        </el-checkbox-group>
-      </div>
+      </el-alert>
 
       <el-collapse v-model="advancedVisible" class="plan-advanced">
         <el-collapse-item title="高级设置" name="advanced">
@@ -687,6 +632,12 @@ async function confirm() {
               <el-input-number v-model="form.availableMinutes" :min="1" :max="720" class="full-width" />
             </el-form-item>
           </div>
+          <el-form-item label="重点内容和顺序">
+            <el-input v-model="form.requirement" type="textarea" :rows="2" maxlength="1000" show-word-limit />
+          </el-form-item>
+          <el-form-item label="节奏或偏好">
+            <el-select v-model="form.preferences" multiple filterable allow-create default-first-option placeholder="例如：轻松一点、先难后易" class="full-width" />
+          </el-form-item>
         </el-collapse-item>
       </el-collapse>
 
@@ -698,7 +649,7 @@ async function confirm() {
         <el-button
           type="primary"
           size="large"
-          class="generate-plan-primary"
+          class="generate-plan-primary primary-action"
           :loading="generating || quickCreating"
           :disabled="generateDisabled"
           @click="generate"
@@ -715,7 +666,98 @@ async function confirm() {
     </el-card>
   </div>
 
-  <div class="plan-preview-layout">
+  <el-drawer
+    v-model="scopeVisible"
+    title="调整学习范围"
+    size="min(620px, 94vw)"
+    class="scope-drawer"
+    destroy-on-close
+  >
+    <div v-if="parsed" v-loading="tasksLoading" class="scope-drawer-content">
+      <section class="scope-drawer-section">
+        <div class="selection-section-heading">
+          <div>
+            <span class="selection-step">1</span>
+            <div>
+              <strong>选择学习科目</strong>
+              <p v-if="parsed.ambiguousTopics.length">“{{ parsed.ambiguousTopics.join('、') }}”对应多个科目，请由你确认。</p>
+              <p v-else>AI 已按主题匹配，你可以随时修改。</p>
+            </div>
+          </div>
+          <span>已选 {{ form.selectedSubjectIds.length }} 个</span>
+        </div>
+        <div v-if="parsed.candidateSubjects.length" class="subject-selection-actions">
+          <el-button size="small" @click="selectAllRelatedSubjects">全部相关科目</el-button>
+          <el-button size="small" @click="selectRecommendedSubjects">按当前进度推荐</el-button>
+        </div>
+        <div class="subject-choice-list">
+          <div
+            v-for="subject in parsed.candidateSubjects"
+            :key="subject.subjectId"
+            class="subject-choice"
+            :class="{ disabled: subject.pendingTaskCount === 0, selected: form.selectedSubjectIds.includes(subject.subjectId) }"
+            role="checkbox"
+            :aria-checked="form.selectedSubjectIds.includes(subject.subjectId)"
+            :aria-disabled="subject.pendingTaskCount === 0"
+            :tabindex="subject.pendingTaskCount === 0 ? -1 : 0"
+            @click="toggleSubject(subject.subjectId, subject.pendingTaskCount === 0)"
+            @keydown.space.prevent="toggleSubject(subject.subjectId, subject.pendingTaskCount === 0)"
+          >
+            <el-checkbox
+              :model-value="form.selectedSubjectIds.includes(subject.subjectId)"
+              :disabled="subject.pendingTaskCount === 0"
+              aria-label="选择科目"
+              @click.stop
+              @change="toggleSubject(subject.subjectId, subject.pendingTaskCount === 0)"
+            />
+            <span class="color-dot" :style="{ backgroundColor: subject.subjectColor || '#94a3b8' }" />
+            <span class="subject-choice-main"><strong>{{ subject.subjectName || '未命名科目' }}</strong><small>{{ subject.matchReason || '与当前学习主题相关' }}</small></span>
+            <el-tag v-if="subject.recommended" size="small" type="success">推荐</el-tag>
+            <span class="subject-task-count">{{ subject.pendingTaskCount ? `${subject.pendingTaskCount} 个待办任务` : '没有可用任务' }}</span>
+          </div>
+        </div>
+        <el-empty v-if="!parsed.candidateSubjects.length" description="没有匹配科目，可返回修改学习主题" :image-size="70" />
+        <el-button type="primary" class="primary-action" :loading="tasksLoading" :disabled="!form.selectedSubjectIds.length" @click="loadCandidateTasks">
+          加载所选科目的任务
+        </el-button>
+        <p v-if="!form.selectedSubjectIds.length" class="action-disabled-hint">请先勾选至少一个有待办任务的科目</p>
+      </section>
+
+      <section v-if="candidateTasks.length" class="scope-drawer-section">
+        <div class="selection-section-heading">
+          <div><span class="selection-step">2</span><div><strong>选择计划任务</strong><p>推荐原因仅供参考，最终范围由你决定。</p></div></div>
+          <span>已选 {{ form.selectedTaskIds.length }} / {{ candidateTasks.length }}</span>
+        </div>
+        <div class="task-selection-actions">
+          <el-button size="small" @click="selectAllTasks">全选</el-button>
+          <el-button size="small" @click="clearSelectedTasks">清空</el-button>
+        </div>
+        <el-checkbox-group v-model="form.selectedTaskIds" class="selectable-task-groups">
+          <section v-for="group in taskGroups" :key="group.subjectId" class="selectable-task-group">
+            <header><span class="color-dot" :style="{ backgroundColor: group.subjectColor || '#94a3b8' }" /><strong>{{ group.subjectName }}</strong><small>{{ group.tasks.length }} 个可用任务</small></header>
+            <label v-for="task in group.tasks" :key="task.taskId" class="selectable-task">
+              <el-checkbox :value="task.taskId" />
+              <span class="selectable-task-main">
+                <strong>{{ task.taskTitle }}</strong>
+                <small>{{ task.goalTitle || '未关联目标' }} · 预计 {{ minutesLabel(task.estimatedMinutes) }}<template v-if="task.deadline"> · 截止 {{ formatDateTime(task.deadline) }}</template></small>
+                <em>{{ task.matchReason }}</em>
+              </span>
+              <el-tag v-if="task.recommended" size="small" type="success">推荐</el-tag>
+              <el-tag size="small" :type="priorityMap[task.priority].type">{{ priorityMap[task.priority].label }}</el-tag>
+            </label>
+          </section>
+        </el-checkbox-group>
+      </section>
+    </div>
+    <template #footer>
+      <div class="scope-drawer-footer">
+        <span>{{ scopeApplyHint }}</span>
+        <div><el-button @click="scopeVisible = false">稍后调整</el-button><el-button type="primary" class="primary-action" :disabled="scopeApplyDisabled" @click="applyScope">应用调整</el-button></div>
+      </div>
+    </template>
+  </el-drawer>
+
+  <div v-if="draft" class="plan-preview-layout">
     <el-card shadow="never" class="panel-card plan-preview-card">
       <template #header>
         <div class="card-header">
@@ -723,11 +765,14 @@ async function confirm() {
             <strong>计划草案</strong>
             <small v-if="draft">可继续调整顺序和时长</small>
           </div>
-          <el-button v-if="original" text @click="draft = clone(original)">恢复生成结果</el-button>
+          <div v-if="original" class="draft-header-actions">
+            <el-button text @click="openScope">调整范围</el-button>
+            <el-button text :loading="generating" @click="generate">重新生成</el-button>
+            <el-button text @click="draft = clone(original)">恢复生成结果</el-button>
+          </div>
         </div>
       </template>
-      <el-empty v-if="!draft" :description="emptyDescription" />
-      <template v-else>
+      <template v-if="draft">
         <el-alert
           v-if="generationMeta?.fallbackUsed"
           :title="generationMeta.fallbackReason || 'AI 暂时不可用，已使用规则生成可用草案'"
@@ -736,6 +781,11 @@ async function confirm() {
           show-icon
           class="plan-fallback-alert"
         />
+        <div class="draft-context-bar">
+          <span><small>日期</small>{{ draft.planDate }}</span>
+          <span><small>开始</small>{{ draft.startTime.slice(0, 5) }}</span>
+          <span><small>范围</small>{{ selectedSubjectLabel }}</span>
+        </div>
         <div class="plan-capacity">
           <div><span>可用时长</span><strong>{{ minutesLabel(draft.availableMinutes) }}</strong></div>
           <div><span>已安排</span><strong>{{ minutesLabel(draft.plannedMinutes) }}</strong></div>
@@ -747,11 +797,9 @@ async function confirm() {
           <article v-for="(item, index) in draft.items" :key="item.taskId" class="draft-item">
             <div class="draft-sequence">{{ item.sequenceNo }}</div>
             <div class="draft-item-content">
-              <strong>
-                <span class="color-dot" :style="{ backgroundColor: item.subjectColor || '#94a3b8' }" />
-                {{ item.taskTitle }}
-              </strong>
-              <p>{{ item.startAt.slice(11, 16) }}—{{ item.endAt.slice(11, 16) }} · {{ item.subjectName }}</p>
+              <span class="draft-subject"><span class="color-dot" :style="{ backgroundColor: item.subjectColor || '#94a3b8' }" />{{ item.subjectName }}</span>
+              <strong>{{ item.taskTitle }}</strong>
+              <p>{{ item.startAt.slice(11, 16) }}—{{ item.endAt.slice(11, 16) }} · 计划 {{ minutesLabel(item.plannedMinutes) }}</p>
               <small>{{ item.reason }}</small>
             </div>
             <el-input-number
@@ -769,13 +817,16 @@ async function confirm() {
         </div>
         <el-button
           type="primary"
-          class="plan-confirm"
+          class="plan-confirm primary-action"
           :disabled="!draft.items.length || draft.plannedMinutes > draft.availableMinutes"
           :loading="confirming"
           @click="confirm"
         >
           确认并保存计划
         </el-button>
+        <p v-if="!draft.items.length || draft.plannedMinutes > draft.availableMinutes" class="action-disabled-hint">
+          {{ !draft.items.length ? '草案没有可保存的任务' : '已安排时长超过可用时长，请先调整' }}
+        </p>
       </template>
     </el-card>
   </div>

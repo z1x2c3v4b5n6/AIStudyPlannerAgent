@@ -136,7 +136,7 @@ class StudyPlanServiceTest {
 
         var result =
                 service.completeItem(
-                        7L, 2L, new PlanItemCompleteRequest(45, " 完成练习 ", false));
+                        7L, 2L, completion(45, " 完成练习 ", false));
 
         ArgumentCaptor<StudyRecord> recordCaptor = ArgumentCaptor.forClass(StudyRecord.class);
         verify(recordMapper).insert(recordCaptor.capture());
@@ -155,6 +155,85 @@ class StudyPlanServiceTest {
     }
 
     @Test
+    void futurePlannedItemCanBeCompletedWithActualPastTime() {
+        StudyPlan plan = plan(7L, PlanStatus.CONFIRMED);
+        StudyPlanItem item = planItem(2L, PlanItemStatus.PENDING);
+        item.setStartAt(DATE.plusDays(1).atTime(9, 0));
+        item.setEndAt(DATE.plusDays(1).atTime(10, 0));
+        StudyTask task = task(10L);
+        prepareCompletion(plan, item, task, List.of(completedItemView(2L, 30, null)));
+
+        service.completeItem(
+                7L,
+                2L,
+                new PlanItemCompleteRequest(
+                        DATE.atTime(19, 15), DATE.atTime(19, 45), null, false));
+
+        ArgumentCaptor<StudyRecord> recordCaptor = ArgumentCaptor.forClass(StudyRecord.class);
+        verify(recordMapper).insert(recordCaptor.capture());
+        assertEquals(DATE.atTime(19, 15), recordCaptor.getValue().getStartedAt());
+        assertEquals(DATE.atTime(19, 45), recordCaptor.getValue().getEndedAt());
+        assertEquals(30, recordCaptor.getValue().getDurationMinutes());
+    }
+
+    @Test
+    void actualDurationIsCalculatedFromTimeRange() {
+        StudyPlan plan = plan(7L, PlanStatus.CONFIRMED);
+        StudyPlanItem item = planItem(2L, PlanItemStatus.PENDING);
+        StudyTask task = task(10L);
+        prepareCompletion(plan, item, task, List.of(completedItemView(2L, 35, null)));
+
+        service.completeItem(
+                7L,
+                2L,
+                new PlanItemCompleteRequest(
+                        DATE.atTime(18, 25), DATE.atTime(19, 0), null, false));
+
+        ArgumentCaptor<StudyRecord> recordCaptor = ArgumentCaptor.forClass(StudyRecord.class);
+        verify(recordMapper).insert(recordCaptor.capture());
+        assertEquals(35, recordCaptor.getValue().getDurationMinutes());
+    }
+
+    @Test
+    void invalidActualTimeRangeIsRejected() {
+        StudyPlan plan = plan(7L, PlanStatus.CONFIRMED);
+        StudyPlanItem item = planItem(2L, PlanItemStatus.PENDING);
+        StudyTask task = task(10L);
+        when(planMapper.selectOwnedForUpdate(7L, 1L)).thenReturn(plan);
+        when(itemMapper.selectOwnedForUpdate(7L, 2L, 1L)).thenReturn(item);
+        when(taskMapper.selectOwnedForUpdate(10L, 1L)).thenReturn(task);
+
+        BusinessException reversed =
+                assertThrows(
+                        BusinessException.class,
+                        () ->
+                                service.completeItem(
+                                        7L,
+                                        2L,
+                                        new PlanItemCompleteRequest(
+                                                DATE.atTime(19, 30),
+                                                DATE.atTime(19, 0),
+                                                null,
+                                                false)));
+        assertEquals(ErrorCode.INVALID_RECORD_TIME, reversed.getErrorCode());
+
+        BusinessException future =
+                assertThrows(
+                        BusinessException.class,
+                        () ->
+                                service.completeItem(
+                                        7L,
+                                        2L,
+                                        new PlanItemCompleteRequest(
+                                                DATE.atTime(19, 30),
+                                                NOW.plusMinutes(1),
+                                                null,
+                                                false)));
+        assertEquals(ErrorCode.RECORD_END_TIME_IN_FUTURE, future.getErrorCode());
+        verify(recordMapper, never()).insert(any(StudyRecord.class));
+    }
+
+    @Test
     void optionallyCompletesOriginalTask() {
         StudyPlan plan = plan(7L, PlanStatus.CONFIRMED);
         StudyPlanItem item = planItem(2L, PlanItemStatus.PENDING);
@@ -162,7 +241,7 @@ class StudyPlanServiceTest {
         prepareCompletion(plan, item, task, List.of(completedItemView(2L, 60, null)));
         when(taskMapper.update(isNull(), any())).thenReturn(1);
 
-        service.completeItem(7L, 2L, new PlanItemCompleteRequest(60, null, true));
+        service.completeItem(7L, 2L, completion(60, null, true));
 
         verify(taskMapper).update(isNull(), any());
         verify(recordMapper).insert(any(StudyRecord.class));
@@ -179,7 +258,7 @@ class StudyPlanServiceTest {
 
         var result =
                 service.completeItem(
-                        7L, 2L, new PlanItemCompleteRequest(60, "重复点击", true));
+                        7L, 2L, completion(60, "重复点击", true));
 
         assertEquals(PlanStatus.COMPLETED, result.status());
         verify(recordMapper, never()).insert(any(StudyRecord.class));
@@ -200,7 +279,7 @@ class StudyPlanServiceTest {
                                 service.completeItem(
                                         7L,
                                         2L,
-                                        new PlanItemCompleteRequest(60, null, false)));
+                                        completion(60, null, false)));
         assertEquals(ErrorCode.PLAN_ACCESS_DENIED, denied.getErrorCode());
 
         StudyPlan cancelled = plan(8L, PlanStatus.CANCELLED);
@@ -212,7 +291,7 @@ class StudyPlanServiceTest {
                                 service.completeItem(
                                         8L,
                                         2L,
-                                        new PlanItemCompleteRequest(60, null, false)));
+                                        completion(60, null, false)));
         assertEquals(ErrorCode.PLAN_ALREADY_CANCELLED, blocked.getErrorCode());
     }
 
@@ -367,7 +446,7 @@ class StudyPlanServiceTest {
                         service.completeItem(
                                 7L,
                                 2L,
-                                new PlanItemCompleteRequest(60, null, false)));
+                                completion(60, null, false)));
         verify(itemMapper, never()).update(isNull(), any());
 
         when(taskMapper.update(isNull(), any())).thenReturn(0);
@@ -377,7 +456,7 @@ class StudyPlanServiceTest {
                         service.completeItem(
                                 7L,
                                 2L,
-                                new PlanItemCompleteRequest(60, null, true)));
+                                completion(60, null, true)));
         verify(recordMapper, times(1)).insert(any(StudyRecord.class));
         assertTrue(
                 StudyPlanService.class
@@ -450,6 +529,13 @@ class StudyPlanServiceTest {
     private PlanConfirmRequest request(
             String id, List<PlanConfirmItemRequest> items, int total) {
         return new PlanConfirmRequest(id, DATE, 120, total, null, "摘要", items);
+    }
+
+    private PlanItemCompleteRequest completion(
+            int minutes, String feedback, boolean completeTask) {
+        LocalDateTime startedAt = DATE.atTime(9, 0);
+        return new PlanItemCompleteRequest(
+                startedAt, startedAt.plusMinutes(minutes), feedback, completeTask);
     }
 
     private PlanConfirmItemRequest itemRequest(

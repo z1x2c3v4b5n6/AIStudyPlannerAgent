@@ -40,17 +40,17 @@ async function submit() {
 <template>
   <main class="auth-page">
     <el-card class="auth-card" shadow="never">
+      <div class="auth-brand"><span class="brand-mark" aria-hidden="true">AI</span><div><strong>AI 学习规划</strong><small>智能学习工作台</small></div></div>
       <h1>创建账号</h1>
-      <p class="subtitle">第一阶段仅提供基础认证功能</p>
+      <p class="subtitle">开始整理目标、任务和每日学习计划</p>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item label="用户名" prop="username"><el-input v-model="form.username" /></el-form-item>
         <el-form-item label="昵称" prop="nickname"><el-input v-model="form.nickname" /></el-form-item>
         <el-form-item label="密码" prop="password"><el-input v-model="form.password" type="password" show-password /></el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword"><el-input v-model="form.confirmPassword" type="password" show-password /></el-form-item>
-        <el-button type="primary" :loading="submitting" class="full-button" @click="submit">注册</el-button>
+        <el-button type="primary" size="large" :loading="submitting" class="full-button" @click="submit">注册</el-button>
       </el-form>
       <p class="switch-link">已有账号？<router-link to="/login">返回登录</router-link></p>
     </el-card>
   </main>
 </template>
-

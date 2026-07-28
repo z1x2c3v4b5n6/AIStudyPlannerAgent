@@ -204,6 +204,14 @@ class NaturalLanguagePlanServiceTest {
     assertTrue(result.needsSubjectSelection());
     assertEquals(java.util.List.of("Java"), result.ambiguousTopics());
     assertEquals(2, result.candidateSubjects().size());
+    assertEquals(
+        java.util.List.of("Java基础", "Java高级"),
+        result.candidateSubjects().stream()
+            .map(candidate -> candidate.subjectName())
+            .toList());
+    assertTrue(
+        result.candidateSubjects().stream()
+            .allMatch(candidate -> candidate.subjectName() != null && !candidate.subjectName().isBlank()));
     assertTrue(result.selectedSubjectIds().isEmpty());
   }
 

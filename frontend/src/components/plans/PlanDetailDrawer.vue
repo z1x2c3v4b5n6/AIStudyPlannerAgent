@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { planApi } from '../../api/plan'
 import type { PlanDetail, PlanItem, PlanItemStatus, PlanStatus } from '../../types/plan'
+import { addWallMinutes, shanghaiDateTime, wallTimeMillis } from '../../utils/businessTime'
 import { formatDateTime, minutesLabel } from '../../utils/display'
 
 const props = defineProps<{ modelValue: boolean; plan: PlanDetail | null }>()
@@ -16,9 +17,27 @@ const completing = ref(false)
 const completionVisible = ref(false)
 const completionItem = ref<PlanItem | null>(null)
 const completionForm = reactive({
-  actualMinutes: 1,
+  actualStartAt: '',
+  actualEndAt: '',
   feedback: '',
   completeTask: false,
+})
+const actualRange = computed({
+  get(): [string, string] | null {
+    return completionForm.actualStartAt && completionForm.actualEndAt
+      ? [completionForm.actualStartAt, completionForm.actualEndAt]
+      : null
+  },
+  set(value: [string, string] | null) {
+    completionForm.actualStartAt = value?.[0] || ''
+    completionForm.actualEndAt = value?.[1] || ''
+  },
+})
+const actualMinutes = computed(() => {
+  const start = wallTimeMillis(completionForm.actualStartAt)
+  const end = wallTimeMillis(completionForm.actualEndAt)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0
+  return Math.floor((end - start) / 60_000)
 })
 
 const statusLabel: Record<PlanStatus, string> = {
@@ -39,19 +58,36 @@ const completionTitle = computed(() =>
 
 function openCompletion(item: PlanItem) {
   completionItem.value = item
-  completionForm.actualMinutes = item.plannedMinutes
+  completionForm.actualEndAt = shanghaiDateTime()
+  completionForm.actualStartAt = addWallMinutes(completionForm.actualEndAt, -item.plannedMinutes)
   completionForm.feedback = ''
   completionForm.completeTask = false
   completionVisible.value = true
 }
 
+function validateActualRange() {
+  if (!completionForm.actualStartAt || !completionForm.actualEndAt) return '请选择实际学习开始和结束时间'
+  if (wallTimeMillis(completionForm.actualEndAt) <= wallTimeMillis(completionForm.actualStartAt)) {
+    return '实际学习开始时间必须早于结束时间'
+  }
+  if (completionForm.actualEndAt > shanghaiDateTime()) return '实际学习结束时间不能晚于当前北京时间'
+  if (completionForm.actualStartAt.slice(0, 10) !== completionForm.actualEndAt.slice(0, 10)) {
+    return '单次学习记录不能跨越自然日'
+  }
+  if (actualMinutes.value < 1 || actualMinutes.value > 720) return '实际学习时长必须为1至720分钟'
+  return null
+}
+
 async function confirmCompletion() {
-  if (!props.plan || !completionItem.value) return
+  if (completing.value || !props.plan || !completionItem.value) return
+  const validationMessage = validateActualRange()
+  if (validationMessage) return ElMessage.warning(validationMessage)
   completing.value = true
   try {
     const detail = (
       await planApi.completeItem(props.plan.id, completionItem.value.id, {
-        actualMinutes: completionForm.actualMinutes,
+        actualStartAt: completionForm.actualStartAt,
+        actualEndAt: completionForm.actualEndAt,
         feedback: completionForm.feedback.trim() || null,
         completeTask: completionForm.completeTask,
       })
@@ -65,7 +101,7 @@ async function confirmCompletion() {
 }
 
 async function change(item: PlanItem, status: PlanItemStatus) {
-  if (!props.plan) return
+  if (changing.value !== null || !props.plan) return
   changing.value = item.id
   try {
     const detail = (
@@ -87,41 +123,37 @@ async function change(item: PlanItem, status: PlanItemStatus) {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <template v-if="plan">
-      <el-descriptions :column="1" border>
-        <el-descriptions-item label="计划日期">{{ plan.planDate }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ statusLabel[plan.status] }}</el-descriptions-item>
-        <el-descriptions-item label="计划时长">
-          {{ minutesLabel(plan.plannedMinutes) }} / {{ minutesLabel(plan.availableMinutes) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="实际学习">
-          {{ minutesLabel(plan.actualStudyMinutes) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="执行结果">
-          完成 {{ plan.completedItemCount }} 项 · 跳过 {{ plan.skippedItemCount }} 项 ·
-          待执行 {{ plan.pendingItemCount }} 项
-        </el-descriptions-item>
-        <el-descriptions-item label="完成率">
-          <el-progress :percentage="plan.completionPercentage" />
-        </el-descriptions-item>
-        <el-descriptions-item label="补充要求">{{ plan.requirement || '—' }}</el-descriptions-item>
-        <el-descriptions-item label="摘要">{{ plan.summary }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatDateTime(plan.createdAt) }}</el-descriptions-item>
-      </el-descriptions>
+      <section class="execution-overview">
+        <div class="execution-overview-heading">
+          <div><small>{{ plan.planDate }}</small><strong>{{ plan.summary }}</strong></div>
+          <el-tag :type="plan.status === 'COMPLETED' ? 'success' : plan.status === 'PARTIALLY_COMPLETED' ? 'warning' : plan.status === 'CANCELLED' || plan.status === 'ABANDONED' ? 'info' : 'primary'">
+            {{ statusLabel[plan.status] }}
+          </el-tag>
+        </div>
+        <div class="execution-metrics">
+          <div><span>计划总时长</span><strong>{{ minutesLabel(plan.plannedMinutes) }}</strong></div>
+          <div><span>实际学习</span><strong>{{ minutesLabel(plan.actualStudyMinutes) }}</strong></div>
+          <div><span>已完成</span><strong>{{ plan.completedItemCount }} 项</strong></div>
+          <div><span>已跳过</span><strong>{{ plan.skippedItemCount }} 项</strong></div>
+          <div><span>待执行</span><strong>{{ plan.pendingItemCount }} 项</strong></div>
+        </div>
+        <div class="execution-progress">
+          <span>计划完成率</span><strong>{{ plan.completionPercentage }}%</strong>
+          <el-progress :percentage="plan.completionPercentage" :show-text="false" />
+        </div>
+        <p v-if="plan.requirement" class="execution-requirement">补充要求：{{ plan.requirement }}</p>
+        <small class="execution-created">创建于 {{ formatDateTime(plan.createdAt) }}</small>
+      </section>
 
       <div class="plan-timeline execution-timeline">
         <article v-for="item in plan.items" :key="item.id" class="plan-timeline-item">
           <div class="draft-sequence">{{ item.sequenceNo }}</div>
           <div class="plan-item-content">
-            <strong>
-              <span
-                class="color-dot"
-                :style="{ backgroundColor: item.subjectColor || '#94a3b8' }"
-              />
-              {{ item.taskTitle }}
-            </strong>
+            <span class="draft-subject"><span class="color-dot" :style="{ backgroundColor: item.subjectColor || '#94a3b8' }" />{{ item.subjectName }}</span>
+            <strong>{{ item.taskTitle }}</strong>
             <p>
               {{ item.startAt.slice(11, 16) }}—{{ item.endAt.slice(11, 16) }}
-              · {{ item.subjectName }} · 计划 {{ minutesLabel(item.plannedMinutes) }}
+              · 计划 {{ minutesLabel(item.plannedMinutes) }}
             </p>
             <p v-if="item.actualMinutes" class="execution-result">
               实际 {{ minutesLabel(item.actualMinutes) }}
@@ -173,14 +205,23 @@ async function change(item: PlanItem, status: PlanItemStatus) {
       <div><span>计划时长</span><strong>{{ minutesLabel(completionItem.plannedMinutes) }}</strong></div>
     </div>
     <el-form label-position="top">
-      <el-form-item label="实际学习时长（分钟）" required>
-        <el-input-number
-          v-model="completionForm.actualMinutes"
-          :min="1"
-          :max="720"
+      <el-form-item label="实际学习时间（北京时间）" required>
+        <el-date-picker
+          v-model="actualRange"
+          type="datetimerange"
+          value-format="YYYY-MM-DDTHH:mm:ss"
+          format="YYYY-MM-DD HH:mm"
+          range-separator="至"
+          start-placeholder="实际开始时间"
+          end-placeholder="实际结束时间"
           class="full-width"
         />
       </el-form-item>
+      <div class="actual-duration-preview">
+        <span>根据时间范围自动计算</span>
+        <strong>{{ actualMinutes > 0 ? minutesLabel(actualMinutes) : '请检查时间范围' }}</strong>
+      </div>
+      <p v-if="validateActualRange()" class="action-disabled-hint">{{ validateActualRange() }}</p>
       <el-form-item label="学习反馈或备注">
         <el-input
           v-model="completionForm.feedback"
@@ -202,7 +243,7 @@ async function change(item: PlanItem, status: PlanItemStatus) {
     </el-form>
     <template #footer>
       <el-button :disabled="completing" @click="completionVisible = false">取消</el-button>
-      <el-button type="primary" :loading="completing" @click="confirmCompletion">
+      <el-button type="primary" class="primary-action" :loading="completing" :disabled="Boolean(validateActualRange())" @click="confirmCompletion">
         确认完成
       </el-button>
     </template>
