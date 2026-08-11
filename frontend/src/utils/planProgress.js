@@ -19,7 +19,9 @@ export function calculatePlanProgress(items) {
 
 export function singlePlanSummary(item) {
   if (item.status === 'COMPLETED') {
-    return `已完成 · 实际学习${item.plannedMinutes}分钟`
+    return item.actualMinutes == null
+      ? '已完成 · 实际时长暂无记录'
+      : `已完成 · 实际学习${item.actualMinutes}分钟`
   }
   if (item.status === 'SKIPPED') {
     return '已跳过 · 未产生学习记录'

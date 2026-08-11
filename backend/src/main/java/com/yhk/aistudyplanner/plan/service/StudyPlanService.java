@@ -223,8 +223,6 @@ public class StudyPlanService {
                                 .eq(StudyPlanItem::getUserId, userId)
                                 .eq(StudyPlanItem::getStatus, PlanItemStatus.PENDING)
                                 .set(StudyPlanItem::getStatus, PlanItemStatus.COMPLETED)
-                                .set(StudyPlanItem::getActualMinutes, actualMinutes)
-                                .set(StudyPlanItem::getFeedback, trimToNull(request.feedback()))
                                 .set(
                                         StudyPlanItem::getTaskStatusBeforeCompletion,
                                         previousTaskStatus)
@@ -358,8 +356,6 @@ public class StudyPlanService {
                                 .eq(StudyPlanItem::getUserId, userId)
                                 .eq(StudyPlanItem::getStatus, PlanItemStatus.COMPLETED)
                                 .set(StudyPlanItem::getStatus, PlanItemStatus.PENDING)
-                                .set(StudyPlanItem::getActualMinutes, null)
-                                .set(StudyPlanItem::getFeedback, null)
                                 .set(StudyPlanItem::getTaskStatusBeforeCompletion, null)
                                 .set(StudyPlanItem::getTaskCompletedAt, null)
                                 .set(StudyPlanItem::getUpdatedAt, LocalDateTime.now(clock)));

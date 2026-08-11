@@ -13,5 +13,5 @@ export function calculatePlanProgress(
 ): PlanProgress
 
 export function singlePlanSummary(
-  item: Pick<PlanItem, 'status' | 'plannedMinutes'>
+  item: Pick<PlanItem, 'status' | 'plannedMinutes' | 'actualMinutes'>
 ): string

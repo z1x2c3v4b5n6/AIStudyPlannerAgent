@@ -5,7 +5,11 @@ import {
   singlePlanSummary
 } from './planProgress.js'
 
-const item = (status, plannedMinutes = 45) => ({ status, plannedMinutes })
+const item = (status, plannedMinutes = 45, actualMinutes = null) => ({
+  status,
+  plannedMinutes,
+  actualMinutes
+})
 
 test('单任务待执行时使用状态摘要且完成率为0', () => {
   assert.equal(singlePlanSummary(item('PENDING')), '待执行 · 计划45分钟')
@@ -13,7 +17,16 @@ test('单任务待执行时使用状态摘要且完成率为0', () => {
 })
 
 test('单任务完成时显示实际学习时长', () => {
-  assert.equal(singlePlanSummary(item('COMPLETED')), '已完成 · 实际学习45分钟')
+  const summary = singlePlanSummary(item('COMPLETED', 45, 50))
+  assert.equal(summary, '已完成 · 实际学习50分钟')
+  assert.notEqual(summary, '已完成 · 实际学习45分钟')
+})
+
+test('单任务完成但没有关联记录时不伪造实际时长', () => {
+  assert.equal(
+    singlePlanSummary(item('COMPLETED', 45, null)),
+    '已完成 · 实际时长暂无记录'
+  )
 })
 
 test('单任务跳过时显示未产生学习记录', () => {

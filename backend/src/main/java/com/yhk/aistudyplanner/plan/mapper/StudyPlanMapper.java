@@ -38,10 +38,11 @@ public interface StudyPlanMapper extends BaseMapper<StudyPlan> {
                COALESCE(SUM(i.status='COMPLETED'),0) completedItemCount,
                COALESCE(SUM(i.status='SKIPPED'),0) skippedItemCount,
                COALESCE(SUM(i.status='PENDING'),0) pendingItemCount,
-               COALESCE(SUM(i.actual_minutes),0) actualStudyMinutes,
+               COALESCE(SUM(r.duration_minutes),0) actualStudyMinutes,
                CASE WHEN COUNT(i.id)=0 THEN 0 ELSE ROUND(SUM(i.status='COMPLETED')*100.0/COUNT(i.id),2) END completionPercentage,
                p.created_at createdAt, p.updated_at updatedAt
         FROM study_plan p LEFT JOIN study_plan_item i ON i.plan_id=p.id AND i.user_id=#{userId}
+        LEFT JOIN study_record r ON r.plan_item_id=i.id AND r.plan_id=p.id AND r.user_id=#{userId}
         WHERE p.user_id=#{userId}
         <if test="startDate != null">AND p.plan_date &gt;= #{startDate}</if>
         <if test="endDate != null">AND p.plan_date &lt;= #{endDate}</if>

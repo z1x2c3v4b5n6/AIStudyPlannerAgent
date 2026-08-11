@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -17,12 +17,6 @@ const navItems = [
   { path: '/records', label: '学习记录' },
   { path: '/statistics', label: '数据统计' }
 ]
-const navItems = navGroups.flatMap((group) => group.items)
-const mainNavItems = navItems
-const overflowNavItems = navItems.slice(5)
-const displayName = computed(() => authStore.user?.nickname || authStore.user?.username || '学习者')
-const initials = computed(() => displayName.value.slice(0, 1).toUpperCase())
-
 async function logout() {
   await authStore.logout()
   await router.replace({ name: 'login' })
