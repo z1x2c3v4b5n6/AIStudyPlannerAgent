@@ -1,22 +1,23 @@
+# IDE and operating-system files
 .idea/
 .vscode/
 *.iml
 .DS_Store
-/.env
+
+# Local environment and secrets
+.env
 !.env.example
-
-backend/target/
+backend/application-local.yml
 backend/src/main/resources/application-local.yml
-
-frontend/node_modules/
-frontend/dist/
 frontend/.env.local
 frontend/.env.*.local
 
+# Build output and dependencies
+backend/target/
+frontend/node_modules/
+frontend/dist/
+
+# Logs and temporary output
 *.log
 *.tmp
 *.out
-tatus --shortq
-
-backend/application-local.yml
-.env
