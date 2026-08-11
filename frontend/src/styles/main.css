@@ -356,6 +356,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px s
   .more-nav-dropdown { display: inline-flex; }
   .user-name { display: none; }
 }
+.action-disabled-hint { margin: -5px 0 14px; color: #b45309; font-size: 12px; }
 @media (max-width: 1200px) { .statistics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .statistics-chart-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .plan-builder { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) {
@@ -400,4 +401,5 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px s
     align-items: flex-start;
     flex-direction: column;
   }
+  .completion-dialog-summary { grid-template-columns: 1fr; }
 }

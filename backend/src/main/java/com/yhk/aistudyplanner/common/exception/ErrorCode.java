@@ -71,4 +71,3 @@ public enum ErrorCode {
     public String message() { return message; }
     public HttpStatus status() { return status; }
 }
-

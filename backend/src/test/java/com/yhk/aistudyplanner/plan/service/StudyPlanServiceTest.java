@@ -1,6 +1,7 @@
 package com.yhk.aistudyplanner.plan.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -131,12 +132,13 @@ class StudyPlanServiceTest {
     void completesItemAndCreatesExecutionRecordWithActualMinutes() {
         StudyPlan plan = plan(7L, PlanStatus.CONFIRMED);
         StudyPlanItem item = planItem(2L, PlanItemStatus.PENDING);
+        item.setPlannedMinutes(45);
         StudyTask task = task(10L);
-        prepareCompletion(plan, item, task, List.of(completedItemView(2L, 45, "完成练习")));
+        prepareCompletion(plan, item, task, List.of(completedItemView(2L, 50, "完成练习")));
 
         var result =
                 service.completeItem(
-                        7L, 2L, completion(45, " 完成练习 ", false));
+                        7L, 2L, completion(50, " 完成练习 ", false));
 
         ArgumentCaptor<StudyRecord> recordCaptor = ArgumentCaptor.forClass(StudyRecord.class);
         verify(recordMapper).insert(recordCaptor.capture());
@@ -145,11 +147,13 @@ class StudyPlanServiceTest {
         assertEquals(7L, record.getPlanId());
         assertEquals(2L, record.getPlanItemId());
         assertEquals(10L, record.getTaskId());
-        assertEquals(45, record.getDurationMinutes());
+        assertEquals(50, record.getDurationMinutes());
         assertEquals(DATE.atTime(9, 0), record.getStartedAt());
-        assertEquals(DATE.atTime(9, 45), record.getEndedAt());
+        assertEquals(DATE.atTime(9, 50), record.getEndedAt());
         assertEquals("完成练习", record.getFeedback());
-        assertEquals(45, result.actualStudyMinutes());
+        assertEquals(50, result.items().get(0).actualMinutes());
+        assertNotEquals(item.getPlannedMinutes(), result.items().get(0).actualMinutes());
+        assertEquals(50, result.actualStudyMinutes());
         assertEquals(1L, result.completedItemCount());
         verify(taskMapper, never()).update(isNull(), any());
     }
@@ -352,8 +356,6 @@ class StudyPlanServiceTest {
     void completedRestoreDeletesOnlyLinkedRecordAndRestoresTaskWhenStillOwnedByOperation() {
         StudyPlan plan = plan(7L, PlanStatus.COMPLETED);
         StudyPlanItem completed = planItem(2L, PlanItemStatus.COMPLETED);
-        completed.setActualMinutes(60);
-        completed.setFeedback("反馈");
         completed.setTaskStatusBeforeCompletion(TaskStatus.IN_PROGRESS);
         completed.setTaskCompletedAt(NOW);
         StudyTask task = task(10L);
@@ -505,7 +507,6 @@ class StudyPlanServiceTest {
         when(recordMapper.insert(any(StudyRecord.class))).thenReturn(1);
         when(itemMapper.update(isNull(), any())).thenReturn(1);
         StudyPlanItem completed = planItem(item.getId(), PlanItemStatus.COMPLETED);
-        completed.setActualMinutes(detailViews.get(0).actualMinutes());
         when(itemMapper.selectList(any())).thenReturn(List.of(completed));
         when(planMapper.update(isNull(), any())).thenReturn(1);
         when(itemMapper.selectViews(plan.getId(), 1L)).thenReturn(detailViews);
