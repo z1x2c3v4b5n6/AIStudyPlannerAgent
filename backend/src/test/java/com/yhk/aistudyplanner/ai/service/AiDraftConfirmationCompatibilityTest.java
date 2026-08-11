@@ -21,6 +21,7 @@ import com.yhk.aistudyplanner.plan.mapper.StudyPlanItemMapper;
 import com.yhk.aistudyplanner.plan.mapper.StudyPlanMapper;
 import com.yhk.aistudyplanner.plan.service.RuleBasedPlanGenerator;
 import com.yhk.aistudyplanner.plan.service.StudyPlanService;
+import com.yhk.aistudyplanner.record.mapper.StudyRecordMapper;
 import com.yhk.aistudyplanner.task.entity.StudyTask;
 import com.yhk.aistudyplanner.task.entity.TaskStatus;
 import com.yhk.aistudyplanner.task.mapper.TaskMapper;
@@ -41,6 +42,7 @@ class AiDraftConfirmationCompatibilityTest {
 
   @Mock StudyPlanMapper planMapper;
   @Mock StudyPlanItemMapper itemMapper;
+  @Mock StudyRecordMapper recordMapper;
   @Mock TaskMapper taskMapper;
   @Mock AuthSessionService session;
   @Mock RuleBasedPlanGenerator ruleGenerator;
@@ -57,7 +59,8 @@ class AiDraftConfirmationCompatibilityTest {
   @Test
   void validatedAiDraftCanBeAcceptedByExistingConfirmationService() {
     LocalDate date = LocalDate.of(2026, 7, 23);
-    PlanDraftRequest draftRequest = new PlanDraftRequest(date, LocalTime.of(9, 0), 90, null);
+    PlanDraftRequest draftRequest =
+        new PlanDraftRequest(date, LocalTime.of(9, 0), 90, null, List.of(2L), List.of(10L));
     AiPlanningContext.TaskContext taskContext =
         new AiPlanningContext.TaskContext(
             10L,
@@ -127,7 +130,8 @@ class AiDraftConfirmationCompatibilityTest {
         Clock.fixed(
             date.atStartOfDay(ZoneId.of("Asia/Shanghai")).toInstant(), ZoneId.of("Asia/Shanghai"));
     StudyPlanService service =
-        new StudyPlanService(planMapper, itemMapper, taskMapper, session, ruleGenerator, clock);
+        new StudyPlanService(
+            planMapper, itemMapper, recordMapper, taskMapper, session, ruleGenerator, clock);
 
     var saved = service.confirm(confirmRequest);
 

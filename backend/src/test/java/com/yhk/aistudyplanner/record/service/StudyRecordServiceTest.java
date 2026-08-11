@@ -130,6 +130,25 @@ class StudyRecordServiceTest {
     }
 
     @Test
+    void planExecutionRecordCannotBeEditedOrDeletedDirectly() {
+        StudyRecord generated = record(7L, 1L);
+        generated.setPlanId(20L);
+        generated.setPlanItemId(30L);
+        when(recordMapper.selectOne(any())).thenReturn(generated);
+
+        assertEquals(
+                ErrorCode.PLAN_EXECUTION_RECORD_LOCKED,
+                assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()))
+                        .getErrorCode());
+        assertEquals(
+                ErrorCode.PLAN_EXECUTION_RECORD_LOCKED,
+                assertThrows(BusinessException.class, () -> service.delete(7L))
+                        .getErrorCode());
+        verify(recordMapper, never()).update(any(), any());
+        verify(recordMapper, never()).delete(any());
+    }
+
+    @Test
     void rejectsEndBeforeOrEqualStart() {
         assertError(ErrorCode.INVALID_RECORD_TIME, createRequest(2L, null, NOW.minusHours(1), NOW.minusHours(1), null));
         assertError(ErrorCode.INVALID_RECORD_TIME, createRequest(2L, null, NOW, NOW.minusMinutes(1), null));

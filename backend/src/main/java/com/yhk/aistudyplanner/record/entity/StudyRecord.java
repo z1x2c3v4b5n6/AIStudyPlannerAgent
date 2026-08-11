@@ -13,6 +13,8 @@ public class StudyRecord {
     private Long userId;
     private Long subjectId;
     private Long taskId;
+    private Long planId;
+    private Long planItemId;
     private LocalDateTime startedAt;
     private LocalDateTime endedAt;
     private Integer durationMinutes;
@@ -28,6 +30,10 @@ public class StudyRecord {
     public void setSubjectId(Long subjectId) { this.subjectId = subjectId; }
     public Long getTaskId() { return taskId; }
     public void setTaskId(Long taskId) { this.taskId = taskId; }
+    public Long getPlanId() { return planId; }
+    public void setPlanId(Long planId) { this.planId = planId; }
+    public Long getPlanItemId() { return planItemId; }
+    public void setPlanItemId(Long planItemId) { this.planItemId = planItemId; }
     public LocalDateTime getStartedAt() { return startedAt; }
     public void setStartedAt(LocalDateTime startedAt) { this.startedAt = startedAt; }
     public LocalDateTime getEndedAt() { return endedAt; }

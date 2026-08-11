@@ -12,6 +12,9 @@ import java.time.LocalDate; import java.time.LocalDateTime; import java.util.Lis
 
 @Mapper
 public interface StudyPlanMapper extends BaseMapper<StudyPlan> {
+    @Select("SELECT * FROM study_plan WHERE id=#{id} AND user_id=#{userId} FOR UPDATE")
+    StudyPlan selectOwnedForUpdate(@Param("id") long id, @Param("userId") long userId);
+
     @Select("""
         SELECT t.id taskId, t.title taskTitle, t.subject_id subjectId, s.name subjectName,
                s.color subjectColor, t.priority, t.status, t.estimated_minutes estimatedMinutes,
@@ -35,7 +38,8 @@ public interface StudyPlanMapper extends BaseMapper<StudyPlan> {
                COALESCE(SUM(i.status='COMPLETED'),0) completedItemCount,
                COALESCE(SUM(i.status='SKIPPED'),0) skippedItemCount,
                COALESCE(SUM(i.status='PENDING'),0) pendingItemCount,
-               CASE WHEN COUNT(i.id)=0 THEN 0 ELSE ROUND(SUM(i.status IN ('COMPLETED','SKIPPED'))*100.0/COUNT(i.id),2) END completionPercentage,
+               COALESCE(SUM(i.actual_minutes),0) actualStudyMinutes,
+               CASE WHEN COUNT(i.id)=0 THEN 0 ELSE ROUND(SUM(i.status='COMPLETED')*100.0/COUNT(i.id),2) END completionPercentage,
                p.created_at createdAt, p.updated_at updatedAt
         FROM study_plan p LEFT JOIN study_plan_item i ON i.plan_id=p.id AND i.user_id=#{userId}
         WHERE p.user_id=#{userId}

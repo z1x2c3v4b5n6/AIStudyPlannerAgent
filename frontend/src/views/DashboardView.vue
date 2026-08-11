@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { goalApi } from '../api/goal'
+import { planApi } from '../api/plan'
 import { subjectApi } from '../api/subject'
 import { taskApi } from '../api/task'
+import type { PlanDetail, PlanListItem } from '../types/plan'
 import type { Subject } from '../types/subject'
 import type { StudyTask, TodayTasks } from '../types/task'
 import { formatDateTime, minutesLabel, priorityMap, taskStatusMap } from '../utils/display'
@@ -13,24 +15,74 @@ const subjects = ref<Subject[]>([]), activeGoalTotal = ref(0), today = ref<Today
 const subjectsLoading = ref(false), goalsLoading = ref(false), todayLoading = ref(false), upcomingLoading = ref(false)
 const subjectsFailed = ref(false), goalsFailed = ref(false), todayFailed = ref(false), upcomingFailed = ref(false)
 const changingTaskId = ref<number | null>(null)
+const todayPlan = ref<PlanDetail | null>(null)
+const todayPlanLoading = ref(false)
 const subjectNames = computed(() => new Map(subjects.value.map((item) => [item.id, item.name])))
+const currentPlanItem = computed(() => todayPlan.value?.items.find((item) => item.status === 'PENDING') || null)
+const nextPlanItem = computed(() => {
+  if (!todayPlan.value || !currentPlanItem.value) return null
+  const index = todayPlan.value.items.findIndex((item) => item.id === currentPlanItem.value?.id)
+  return todayPlan.value.items.slice(index + 1).find((item) => item.status === 'PENDING') || null
+})
 
 async function loadSubjects() { subjectsLoading.value = true; subjectsFailed.value = false; try { subjects.value = (await subjectApi.list()).data.data } catch { subjectsFailed.value = true; subjects.value = [] } finally { subjectsLoading.value = false } }
 async function loadGoals() { goalsLoading.value = true; goalsFailed.value = false; try { activeGoalTotal.value = (await goalApi.list({ page: 1, pageSize: 1, status: 'ACTIVE' })).data.data.total } catch { goalsFailed.value = true; activeGoalTotal.value = 0 } finally { goalsLoading.value = false } }
 async function loadToday() { todayLoading.value = true; todayFailed.value = false; try { today.value = (await taskApi.today()).data.data } catch { todayFailed.value = true; today.value = { tasks: [], totalEstimatedMinutes: 0 } } finally { todayLoading.value = false } }
 async function loadUpcoming() { upcomingLoading.value = true; upcomingFailed.value = false; try { upcoming.value = (await taskApi.upcoming(7)).data.data } catch { upcomingFailed.value = true; upcoming.value = [] } finally { upcomingLoading.value = false } }
+async function loadTodayPlan() {
+  todayPlanLoading.value = true
+  try {
+    const result = (await planApi.list({ page: 1, pageSize: 20, startDate: shanghaiDate(), endDate: shanghaiDate() })).data.data
+    const selected = result.list.find((plan: PlanListItem) => plan.status !== 'CANCELLED')
+    todayPlan.value = selected ? (await planApi.get(selected.id)).data.data : null
+  } catch {
+    todayPlan.value = null
+  } finally {
+    todayPlanLoading.value = false
+  }
+}
 async function changeStatus(task: StudyTask, status: 'IN_PROGRESS' | 'COMPLETED') { if (changingTaskId.value) return; changingTaskId.value = task.id; try { await taskApi.changeStatus(task.id, status); ElMessage.success(status === 'COMPLETED' ? '任务已完成' : '任务已开始'); await loadToday() } catch { /* HTTP 拦截器统一提示 */ } finally { changingTaskId.value = null } }
 function scheduleLabel(task: StudyTask) {
   if (!task.plannedDate || task.plannedDate === shanghaiDate()) return '今日'
   const days = inclusiveBusinessDays(task.plannedDate, shanghaiDate()) - 1
   return days > 0 ? `逾期 ${days} 天` : task.plannedDate
 }
-onMounted(() => { loadSubjects(); loadGoals(); loadToday(); loadUpcoming() })
+onMounted(() => { loadSubjects(); loadGoals(); loadToday(); loadUpcoming(); loadTodayPlan() })
 </script>
 
 <template>
   <section class="page-section">
     <div class="page-heading"><div><h1>学习概览</h1><p>聚焦今天要做的事，并留意即将到期的任务。</p></div><el-button type="primary" @click="$router.push('/plans')">生成学习计划</el-button></div>
+    <el-card v-loading="todayPlanLoading" shadow="never" class="today-plan-hero">
+      <template v-if="todayPlan">
+        <div class="today-plan-heading">
+          <div><span>今日学习计划</span><strong>{{ todayPlan.summary }}</strong></div>
+          <el-tag :type="todayPlan.status === 'COMPLETED' ? 'success' : todayPlan.status === 'PARTIALLY_COMPLETED' ? 'warning' : 'primary'">
+            {{ todayPlan.status === 'COMPLETED' ? '全部完成' : todayPlan.status === 'PARTIALLY_COMPLETED' ? '部分完成' : '进行中' }}
+          </el-tag>
+        </div>
+        <div class="today-plan-body">
+          <div class="today-current-task">
+            <small>{{ currentPlanItem ? '接下来' : '执行结果' }}</small>
+            <strong>{{ currentPlanItem?.taskTitle || '今天的计划已执行完毕' }}</strong>
+            <span v-if="currentPlanItem">{{ currentPlanItem.startAt.slice(11, 16) }}—{{ currentPlanItem.endAt.slice(11, 16) }} · {{ currentPlanItem.subjectName }}</span>
+            <span v-if="nextPlanItem">下一项：{{ nextPlanItem.taskTitle }}</span>
+          </div>
+          <div class="today-plan-progress">
+            <div><span>完成进度</span><strong>{{ todayPlan.completionPercentage }}%</strong></div>
+            <el-progress :percentage="todayPlan.completionPercentage" :show-text="false" />
+            <small>实际学习 {{ minutesLabel(todayPlan.actualStudyMinutes) }} · 已完成 {{ todayPlan.completedItemCount }} 项</small>
+          </div>
+          <el-button type="primary" size="large" @click="$router.push({ path: '/plans', query: { planId: todayPlan.id } })">
+            {{ currentPlanItem ? '继续学习' : '查看执行结果' }}
+          </el-button>
+        </div>
+      </template>
+      <div v-else class="today-plan-empty">
+        <div><span class="today-plan-empty-icon" aria-hidden="true">✦</span><div><strong>今天还没有学习计划</strong><p>告诉 AI 你的可用时间，把待办整理成清晰安排。</p></div></div>
+        <el-button type="primary" size="large" @click="$router.push('/plans')">生成今日计划</el-button>
+      </div>
+    </el-card>
     <div class="stat-grid">
       <el-card v-loading="subjectsLoading" shadow="never" class="stat-card"><span>学习科目</span><strong>{{ subjectsFailed ? '—' : subjects.length }}</strong><small v-if="subjectsFailed">加载失败</small></el-card>
       <el-card v-loading="goalsLoading" shadow="never" class="stat-card"><span>进行中目标</span><strong>{{ goalsFailed ? '—' : activeGoalTotal }}</strong><small v-if="goalsFailed">加载失败</small></el-card>

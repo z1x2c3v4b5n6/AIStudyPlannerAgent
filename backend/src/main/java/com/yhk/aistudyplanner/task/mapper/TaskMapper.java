@@ -12,6 +12,9 @@ import java.util.List;
 
 @Mapper
 public interface TaskMapper extends BaseMapper<StudyTask> {
+    @Select("SELECT * FROM study_task WHERE id=#{taskId} AND user_id=#{userId} FOR UPDATE")
+    StudyTask selectOwnedForUpdate(@Param("taskId") long taskId, @Param("userId") long userId);
+
     @Select("SELECT * FROM study_task WHERE user_id = #{userId} AND planned_date <= #{date} " +
             "AND status IN ('TODO','IN_PROGRESS') ORDER BY planned_date ASC, priority DESC, " +
             "due_at IS NULL ASC, due_at ASC, id ASC")

@@ -43,7 +43,9 @@ class AiPlanServiceTest {
     properties.setEnabled(true);
     properties.setApiKey("test-key");
     when(session.currentUserId()).thenReturn(1L);
-    request = new PlanDraftRequest(DATE, LocalTime.of(9, 0), 120, null);
+    request =
+        new PlanDraftRequest(
+            DATE, LocalTime.of(9, 0), 120, null, List.of(2L), List.of(10L, 11L));
     rule = new PlanDraftView("rule", DATE, LocalTime.of(9, 0), 120, 60, null, "rule", List.of());
     lenient().when(rules.generate(1, request)).thenReturn(rule);
     lenient().when(prompts.system()).thenReturn("system JSON");
@@ -86,11 +88,11 @@ class AiPlanServiceTest {
   }
 
   @Test
-  void noCandidatesSkipsAiWithoutMarkingFailure() {
+  void selectedTaskMissingFromCandidatesIsRejected() {
     when(contexts.build(1, DATE)).thenReturn(emptyContext());
-    var r = service.generate(request);
-    assertFalse(r.fallbackUsed());
-    assertEquals("RULE", r.generatorType());
+    assertEquals(
+        ErrorCode.PLAN_TASK_INVALID,
+        assertThrows(BusinessException.class, () -> service.generate(request)).getErrorCode());
     verifyNoInteractions(gateway);
   }
 
@@ -123,6 +125,21 @@ class AiPlanServiceTest {
   }
 
   @Test
+  void aiTaskOutsideUserSelectionFallsBack() {
+    request =
+        new PlanDraftRequest(
+            DATE, LocalTime.of(9, 0), 120, null, List.of(2L), List.of(10L));
+    available();
+    when(contexts.build(1, DATE)).thenReturn(context());
+    when(gateway.generate(anyString(), anyString())).thenReturn(json("11,30,reason"));
+
+    var result = service.generate(request);
+
+    assertTrue(result.fallbackUsed());
+    assertEquals("RULE", result.generatorType());
+  }
+
+  @Test
   void shortAndOversizedDurationsAreNormalizedButBadReasonStillFallbacks() {
     assertEquals(15, assertAiFor(json("10,10,reason")).draft().items().get(0).plannedMinutes());
     assertEquals(60, assertAiFor(json("10,90,reason")).draft().items().get(0).plannedMinutes());
@@ -132,13 +149,17 @@ class AiPlanServiceTest {
 
   @Test
   void totalOverLimitIsSafelyReducedButInvalidRequestCrossDayStillFails() {
-    request = new PlanDraftRequest(DATE, LocalTime.of(9, 0), 70, null);
+    request =
+        new PlanDraftRequest(
+            DATE, LocalTime.of(9, 0), 70, null, List.of(2L), List.of(10L, 11L));
     var result =
         assertAiFor(
             "{\"summary\":\"x\",\"items\":[{\"taskId\":10,\"plannedMinutes\":60,\"reason\":\"x\"},{\"taskId\":11,\"plannedMinutes\":45,\"reason\":\"x\"}]}");
     assertEquals(60, result.draft().plannedMinutes());
     assertEquals(1, result.draft().items().size());
-    request = new PlanDraftRequest(DATE, LocalTime.of(23, 30), 60, null);
+    request =
+        new PlanDraftRequest(
+            DATE, LocalTime.of(23, 30), 60, null, List.of(2L), List.of(10L, 11L));
     assertEquals(
         ErrorCode.INVALID_PLAN_TIME,
         assertThrows(BusinessException.class, () -> service.generate(request)).getErrorCode());
@@ -198,7 +219,7 @@ class AiPlanServiceTest {
 
   private AiPlanningContext context() {
     return new AiPlanningContext(
-        List.of(),
+        List.of(new AiPlanningContext.SubjectContext(2L, "Java", "#409EFF")),
         List.of(),
         List.of(task(10, 60), task(11, 45)),
         new AiPlanningContext.StudySummaryContext(0, 0, 0),
@@ -208,7 +229,7 @@ class AiPlanServiceTest {
 
   private AiPlanningContext emptyContext() {
     return new AiPlanningContext(
-        List.of(),
+        List.of(new AiPlanningContext.SubjectContext(2L, "Java", "#409EFF")),
         List.of(),
         List.of(),
         new AiPlanningContext.StudySummaryContext(0, 0, 0),

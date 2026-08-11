@@ -32,8 +32,9 @@ async function submit() {
 <template>
   <main class="auth-page">
     <el-card class="auth-card" shadow="never">
-      <h1>AI 学习规划</h1>
-      <p class="subtitle">登录后开始管理你的学习计划</p>
+      <div class="auth-brand"><span class="brand-mark" aria-hidden="true">AI</span><div><strong>AI 学习规划</strong><small>智能学习工作台</small></div></div>
+      <h1>欢迎回来</h1>
+      <p class="subtitle">登录后继续你的学习安排</p>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @keyup.enter="submit">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" autocomplete="username" />
@@ -41,10 +42,9 @@ async function submit() {
         <el-form-item label="密码" prop="password">
           <el-input v-model="form.password" type="password" show-password autocomplete="current-password" />
         </el-form-item>
-        <el-button type="primary" :loading="submitting" class="full-button" @click="submit">登录</el-button>
+        <el-button type="primary" size="large" :loading="submitting" class="full-button" @click="submit">登录</el-button>
       </el-form>
       <p class="switch-link">还没有账号？<router-link to="/register">立即注册</router-link></p>
     </el-card>
   </main>
 </template>
-
