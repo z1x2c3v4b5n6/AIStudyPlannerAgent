@@ -128,6 +128,7 @@ public class LearningPathService {
     private void validateDates(LocalDate start,LocalDate target){
         if(start.isBefore(LocalDate.now(clock))) throw new BusinessException(ErrorCode.PLAN_DATE_IN_PAST);
         if(target!=null&&start.isAfter(target)) throw new BusinessException(ErrorCode.INVALID_DATE_RANGE);
+        if(target!=null&&ChronoUnit.DAYS.between(start,target)+1>10) throw new BusinessException(ErrorCode.LEARNING_PATH_DURATION_EXCEEDED);
     }
     private void validateItems(List<LearningPathConfirmRequest.Item> items,LocalDate start,LocalDate target,Integer dailyMinutes){
         if(items.size()>100) throw new BusinessException(ErrorCode.LEARNING_PATH_INVALID);
