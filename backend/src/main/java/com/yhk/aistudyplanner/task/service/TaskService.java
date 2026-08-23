@@ -136,7 +136,8 @@ public class TaskService {
     public void delete(long id) {
         long userId = sessionService.currentUserId();
         requireOwned(id, userId);
-        if (taskMapper.countRecords(userId, id) > 0 || taskMapper.countPlanItems(userId, id) > 0) {
+        if (taskMapper.countRecords(userId, id) > 0 || taskMapper.countPlanItems(userId, id) > 0
+                || taskMapper.countPathItems(userId, id) > 0) {
             throw new BusinessException(ErrorCode.TASK_HAS_REFERENCES);
         }
         int deleted = taskMapper.delete(new LambdaQueryWrapper<StudyTask>()

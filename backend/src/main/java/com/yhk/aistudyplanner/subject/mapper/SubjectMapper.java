@@ -16,5 +16,8 @@ public interface SubjectMapper extends BaseMapper<Subject> {
 
     @Select("SELECT COUNT(*) FROM study_record WHERE user_id = #{userId} AND subject_id = #{subjectId}")
     long countRecords(@Param("userId") long userId, @Param("subjectId") long subjectId);
+
+    @Select("SELECT COUNT(*) FROM study_path WHERE user_id=#{userId} AND subject_id=#{subjectId}")
+    long countPaths(@Param("userId") long userId, @Param("subjectId") long subjectId);
 }
 

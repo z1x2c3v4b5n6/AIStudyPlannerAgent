@@ -63,7 +63,7 @@ const generateButtonText = computed(() =>
   generating.value || quickCreating.value
     ? '正在为你生成计划...'
     : generationMode.value === 'AI'
-      ? 'AI生成学习计划'
+      ? 'AI生成今日计划'
       : '生成规则计划',
 )
 const generateDisabled = computed(

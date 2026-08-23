@@ -30,4 +30,7 @@ public interface TaskMapper extends BaseMapper<StudyTask> {
 
     @Select("SELECT COUNT(*) FROM study_plan_item WHERE user_id = #{userId} AND task_id = #{taskId}")
     long countPlanItems(@Param("userId") long userId, @Param("taskId") long taskId);
+
+    @Select("SELECT COUNT(*) FROM study_path_item WHERE user_id=#{userId} AND task_id=#{taskId}")
+    long countPathItems(@Param("userId") long userId, @Param("taskId") long taskId);
 }
