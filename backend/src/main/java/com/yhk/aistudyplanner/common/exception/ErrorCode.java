@@ -52,6 +52,7 @@ public enum ErrorCode {
     LEARNING_PATH_NOT_FOUND(40430, "学习路径不存在", HttpStatus.NOT_FOUND),
     LEARNING_PATH_ITEM_NOT_FOUND(40431, "学习路径节点不存在", HttpStatus.NOT_FOUND),
     LEARNING_PATH_SUBJECT_REQUIRED(40031, "创建学习任务前必须为路径选择科目", HttpStatus.BAD_REQUEST),
+    LEARNING_PATH_DURATION_EXCEEDED(40032, "单次学习路径最长支持10天，请拆分为多个阶段。", HttpStatus.BAD_REQUEST),
     LEARNING_PATH_ITEM_LINKED(40930, "已关联任务的节点状态由真实任务决定", HttpStatus.CONFLICT),
     LEARNING_PATH_CANCELLED(40931, "已取消的学习路径不能创建任务", HttpStatus.CONFLICT),
     AI_NOT_CONFIGURED(50310, "AI服务未配置", HttpStatus.SERVICE_UNAVAILABLE),
