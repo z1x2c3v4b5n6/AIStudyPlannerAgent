@@ -68,19 +68,22 @@ onMounted(async () => { await Promise.all([loadSubjects(), load()]) })
 </script>
 
 <template>
-  <section class="page-section">
+  <section class="page-section goal-tech-page">
     <div class="page-heading"><div><h1>学习目标</h1><p>用明确的时长和日期组织阶段性学习成果。</p></div><el-button type="primary" :disabled="!subjects.length" @click="openCreate">创建目标</el-button></div>
     <el-card shadow="never" class="panel-card">
       <div class="filter-bar"><el-select v-model="query.subjectId" clearable placeholder="全部科目"><el-option v-for="s in subjects" :key="s.id" :label="s.name" :value="s.id" /></el-select><el-select v-model="query.status" clearable placeholder="全部状态"><el-option v-for="(meta, status) in goalStatusMap" :key="status" :label="meta.label" :value="status" /></el-select><el-button @click="resetFilters">重置</el-button></div>
-      <el-table v-loading="loading" :data="rows" empty-text="暂无符合条件的学习目标">
-        <el-table-column prop="title" label="目标" min-width="180" show-overflow-tooltip />
-        <el-table-column label="科目" min-width="120"><template #default="{ row }">{{ subjectNames.get(row.subjectId) || '未知科目' }}</template></el-table-column>
-        <el-table-column label="目标时长" width="130"><template #default="{ row }">{{ minutesLabel(row.targetMinutes) }}</template></el-table-column>
-        <el-table-column label="目标日期" width="120"><template #default="{ row }">{{ formatDate(row.targetDate) }}</template></el-table-column>
-        <el-table-column label="状态" width="130"><template #default="{ row }"><el-dropdown trigger="click" @command="(status: GoalStatus) => changeStatus(row, status)"><el-tag :type="statusMeta(row.status).type" class="clickable-tag">{{ statusMeta(row.status).label }}</el-tag><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="(meta, status) in goalStatusMap" :key="status" :command="status">{{ meta.label }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown></template></el-table-column>
-        <el-table-column label="创建时间" width="170"><template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
-        <el-table-column label="操作" width="190" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="showDetail(row)">详情</el-button><el-button link type="primary" @click="openEdit(row)">编辑</el-button><el-button link type="danger" @click="remove(row)">删除</el-button></template></el-table-column>
-      </el-table>
+      <div v-loading="loading" class="goal-tech-list">
+        <article v-for="row in rows" :key="row.id" class="goal-tech-card">
+          <div class="goal-tech-main">
+            <h3>{{ row.title }}</h3>
+            <p>{{ row.description || '暂未填写目标描述' }}</p>
+            <div class="goal-tech-meta"><span>科目 <strong>{{ subjectNames.get(row.subjectId) || '未知科目' }}</strong></span><span>目标日期 <strong>{{ formatDate(row.targetDate) }}</strong></span><span>创建于 {{ formatDateTime(row.createdAt) }}</span></div>
+          </div>
+          <div class="goal-tech-progress"><div><span>目标投入</span><strong>{{ minutesLabel(row.targetMinutes) }}</strong></div><el-progress :percentage="row.status === 'COMPLETED' ? 100 : 0" :show-text="false" :stroke-width="5" /></div>
+          <div class="goal-tech-actions"><el-dropdown trigger="click" @command="(status: GoalStatus) => changeStatus(row, status)"><el-tag :type="statusMeta(row.status).type" class="clickable-tag">{{ statusMeta(row.status).label }}</el-tag><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="(meta, status) in goalStatusMap" :key="status" :command="status">{{ meta.label }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown><el-button link type="primary" @click="showDetail(row)">详情</el-button><el-button link type="primary" @click="openEdit(row)">编辑</el-button><el-button link type="danger" @click="remove(row)">删除</el-button></div>
+        </article>
+        <el-empty v-if="!loading && !rows.length" description="暂无符合条件的学习目标" />
+      </div>
       <div class="pagination"><el-pagination v-model:current-page="query.page" v-model:page-size="query.pageSize" :total="total" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" @current-change="load" @size-change="() => { query.page = 1; load() }" /></div>
     </el-card>
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑目标' : '创建目标'" width="min(560px, 92vw)" destroy-on-close @closed="resetForm">

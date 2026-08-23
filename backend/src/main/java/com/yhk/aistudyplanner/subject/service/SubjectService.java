@@ -96,7 +96,7 @@ public class SubjectService {
         long userId = sessionService.currentUserId();
         requireOwned(id, userId);
         if (subjectMapper.countGoals(userId, id) > 0 || subjectMapper.countTasks(userId, id) > 0
-                || subjectMapper.countRecords(userId, id) > 0) {
+                || subjectMapper.countRecords(userId, id) > 0 || subjectMapper.countPaths(userId, id) > 0) {
             throw new BusinessException(ErrorCode.SUBJECT_HAS_REFERENCES);
         }
         int deleted = subjectMapper.delete(new LambdaQueryWrapper<Subject>()

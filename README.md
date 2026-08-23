@@ -28,6 +28,9 @@
 - 计划执行：完成、跳过、恢复待执行，以及整体完成/部分完成/全部跳过状态
 - 完成计划项时记录实际开始时间、结束时间、学习反馈，并可选择联动完成原任务
 - 实际学习时长写入学习记录并实时进入统计
+- AI 长期学习路径：阶段、知识点、学习目标、学习方法、完成标准和建议学习日
+- 学习路径节点经用户确认后转换为真实 StudyTask，再进入现有每日计划
+- 路径进度从关联任务真实状态推导，未关联节点才使用自身待学习/跳过状态
 
 ## 技术栈
 
@@ -82,6 +85,8 @@ flowchart TD
     T --> U[统计概览、趋势和科目分布]
 ```
 
+长期规划与每日执行保持分层：`Learning Path → StudyTask → StudyPlan → StudyRecord`。Learning Path 不会绕过真实任务直接创建每日计划项。
+
 AI 不能创建、修改或完成业务数据。快速创建任务也不是 AI 写库，而是用户确认后由普通后端 Service 在事务中执行。
 
 ## 计划时长与真实时长
@@ -127,6 +132,12 @@ AI 不能创建、修改或完成业务数据。快速创建任务也不是 AI �
 | 计划状态 | `PATCH /plans/{id}/status` | 更新整份计划状态 |
 | 完成计划项 | `POST /plans/{planId}/items/{itemId}/complete` | 保存实际时间、反馈和学习记录 |
 | 跳过/恢复 | `PATCH /plans/{planId}/items/{itemId}/status` | 跳过或恢复计划项 |
+| AI 学习路径 | `POST /ai/learning-paths/generate` | 生成结构化长期学习路径草案 |
+| 路径确认 | `POST /learning-paths/confirm` | 事务保存路径和有序节点 |
+| 路径查询 | `GET /learning-paths`、`GET /learning-paths/{id}` | 分页和阶段化详情 |
+| 路径状态 | `PATCH /learning-paths/{id}/status` | 暂停、恢复或取消路径，不修改已创建任务 |
+| 节点转任务 | `POST /learning-paths/{pathId}/items/{itemId}/create-task` | 创建或返回已关联的真实任务 |
+| 未关联节点状态 | `PATCH /learning-paths/{pathId}/items/{itemId}/status` | 跳过或恢复未转任务节点 |
 
 AI 与规则草案使用同一个确认接口，不存在绕过业务校验的第二套保存流程。
 
@@ -137,6 +148,7 @@ AI 与规则草案使用同一个确认接口，不存在绕过业务校验的�
 - `V1__create_mvp_tables.sql`：MVP 用户、科目、目标、任务、记录和计划基础表。
 - `V2__add_plan_execution_tracking.sql`：计划执行状态、任务恢复信息及学习记录来源关联。
 - `V3__complete_plan_execution_tracking.sql`：移除计划项中的重复实际时长/反馈字段，确立 `study_record` 为唯一真实执行数据源。
+- `V4__add_learning_paths.sql`：新增长期学习路径、阶段节点及节点到真实任务的一对一关联。
 
 已经在环境中执行过的 Flyway migration 必须保持不可变，否则会产生 checksum mismatch。后续 Schema 变化只能增加新的版本迁移，不能修改 V1、V2 或 V3。
 
