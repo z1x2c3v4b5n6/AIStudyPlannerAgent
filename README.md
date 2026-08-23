@@ -89,6 +89,17 @@ flowchart TD
 
 AI 不能创建、修改或完成业务数据。快速创建任务也不是 AI 写库，而是用户确认后由普通后端 Service 在事务中执行。
 
+## Local Knowledge Base
+
+项目内置了可版本化、只读的本地结构化知识库，目前覆盖：
+
+- Java Backend：Java 基础、集合、并发、JVM 和 Spring Backend 核心知识。
+- AI Application Development：LLM、Prompt Engineering、RAG、AI Application 和 Agent 核心概念。
+
+`KnowledgeRetriever` 使用 deterministic weighted keyword/tag retrieval，对 topic、alias、tag、stage、key point、learning objective 和 prerequisite 进行加权匹配，返回分数及命中词，因此检索结果稳定且可解释。知识资源在应用启动时从 classpath 加载并完成领域一致性、ID 唯一性及内容完整性校验，后续查询只读取不可变内存快照。
+
+当前 Phase C-1 尚未将 Knowledge Retrieval 注入 AI Learning Path，现有 DeepSeek 路径生成行为保持不变。RAG Prompt integration 将在下一阶段完成；当前没有 Vector RAG、Embedding、Web Search 或 Knowledge Graph。
+
 ## 计划时长与真实时长
 
 - `plannedMinutes` 是生成计划时确定的计划时长。
@@ -240,7 +251,9 @@ AIStudyPlannerAgent/
 ├─ .github/workflows/ci.yml
 ├─ backend/
 │  ├─ src/main/java/com/yhk/aistudyplanner/
+│  │  └─ knowledge/                 # 本地知识模型、资源仓库与确定性检索
 │  ├─ src/main/resources/db/migration/
+│  ├─ src/main/resources/knowledge/ # Java Backend 与 AI Application 知识包
 │  ├─ src/test/
 │  ├─ Dockerfile
 │  └─ pom.xml
@@ -279,7 +292,7 @@ GitHub Actions 在 push 到 `main` 和针对 `main` 的 Pull Request 上并行�
 
 - AI 调用为非流式响应，未实现 SSE。
 - 当前是受控的规划流程，未实现 Agent 工具调用或 Function Calling。
-- 未实现 RAG、向量数据库、MCP、多 Agent 和 AI 会话历史。
+- 已实现本地结构化 Knowledge Base 与确定性检索，但尚未注入 Learning Path Prompt；未实现 Vector RAG、Embedding、向量数据库、MCP、多 Agent 和 AI 会话历史。
 - 未支持多模型动态切换或用户自定义 API Key。
 - AI/规则生成来源没有持久化到历史计划。
 - 当前业务时间统一使用 Asia/Shanghai，尚未提供用户级时区设置。
