@@ -116,6 +116,22 @@ flowchart LR
 
 当前实现属于 `Structured Local Knowledge + Deterministic Retrieval + Context Augmentation + LLM Generation`，不是 Vector RAG；没有 Embedding、向量数据库、Web Search 或 Knowledge Graph。
 
+### RAG 阶段与离线检索评估
+
+- C-1：`Structured Local Knowledge + Deterministic Retrieval`
+- C-2：`Retrieval + Context Augmentation + LLM Generation`
+- C-3：`Offline Retrieval Evaluation`，覆盖 Hit@K、Precision@K、Recall@K 和 MRR@K
+
+C-3 使用 30 条固定评估案例（12 条 Java Backend、18 条 AI Application），在 K=3、5、8 下重复运行真实 `KnowledgeRetriever`。当前基线如下：
+
+| K | Hit@K | Precision@K | Recall@K | MRR@K |
+|---:|---:|---:|---:|---:|
+| 3 | 0.5667 | 0.3333 | 0.4861 | 0.5111 |
+| 5 | 0.5667 | 0.2861 | 0.4861 | 0.5111 |
+| 8 | 0.5667 | 0.2711 | 0.4861 | 0.5111 |
+
+评估器同时输出低召回案例的 query、预期知识 ID、实际结果和缺失 ID，便于后续分析词面检索无法覆盖的自然语言改写。该评估属于 **retrieval-level offline evaluation**，只衡量知识召回与排序；它不是 LLM answer quality evaluation，也不是 RAGAS、Faithfulness 或最终回答正确性评估。
+
 ## 计划时长与真实时长
 
 - `plannedMinutes` 是生成计划时确定的计划时长。

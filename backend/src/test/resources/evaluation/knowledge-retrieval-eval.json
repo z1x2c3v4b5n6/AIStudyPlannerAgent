@@ -1,0 +1,182 @@
+[
+  {
+    "id": "java-001",
+    "query": "Java集合有哪些常用接口和List实现",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["java-collection-overview", "java-arraylist", "java-linkedlist"]
+  },
+  {
+    "id": "java-002",
+    "query": "HashMap的put流程和扩容机制是怎样的",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["java-hashmap"]
+  },
+  {
+    "id": "java-003",
+    "query": "线程安全Map底层怎么实现",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["java-concurrent-hashmap"]
+  },
+  {
+    "id": "java-004",
+    "query": "Java对象什么时候会被垃圾回收",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["jvm-gc"]
+  },
+  {
+    "id": "java-005",
+    "query": "JVM里的堆栈和运行时数据区分别存什么",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["jvm-memory"]
+  },
+  {
+    "id": "java-006",
+    "query": "多个线程同时修改共享数据时怎样使用Java内置锁",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["java-synchronized"]
+  },
+  {
+    "id": "java-007",
+    "query": "一个线程修改变量后怎样让其他线程立即看见",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["java-volatile"]
+  },
+  {
+    "id": "java-008",
+    "query": "如何复用线程并控制任务队列和拒绝策略",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["java-thread-pool"]
+  },
+  {
+    "id": "java-009",
+    "query": "Spring怎样创建对象并完成依赖注入",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["spring-ioc"]
+  },
+  {
+    "id": "java-010",
+    "query": "Spring Web请求从入口到Controller经历什么流程",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["spring-mvc"]
+  },
+  {
+    "id": "java-011",
+    "query": "Spring Boot为什么只需要少量配置就能启动项目",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["spring-boot"]
+  },
+  {
+    "id": "java-012",
+    "query": "准备Java后端面试，想系统复习集合、并发、JVM和Spring",
+    "domain": "JAVA_BACKEND",
+    "relevantIds": ["java-collection-overview", "java-thread-pool", "jvm-gc", "spring-boot"]
+  },
+  {
+    "id": "ai-001",
+    "query": "一段文字为什么会被拆成Token，上下文窗口又限制什么",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["llm-token-context"]
+  },
+  {
+    "id": "ai-002",
+    "query": "怎样通过Temperature控制模型回答的随机性",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["llm-temperature"]
+  },
+  {
+    "id": "ai-003",
+    "query": "怎样要求大模型严格按照Schema返回结构化结果",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["llm-structured-output", "prompt-json-output"]
+  },
+  {
+    "id": "ai-004",
+    "query": "如何用系统提示词固定模型角色和最高优先级规则",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["prompt-system", "prompt-constraints"]
+  },
+  {
+    "id": "ai-005",
+    "query": "给模型几个输入输出示例来提高回答稳定性",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["prompt-few-shot"]
+  },
+  {
+    "id": "ai-006",
+    "query": "怎样在Prompt里写清楚禁止事项和输出边界",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["prompt-constraints"]
+  },
+  {
+    "id": "ai-007",
+    "query": "让模型只返回可解析的JSON Object",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["prompt-json-output", "llm-structured-output"]
+  },
+  {
+    "id": "ai-008",
+    "query": "长文档入库前应该怎样分段切块",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["rag-document-chunk"]
+  },
+  {
+    "id": "ai-009",
+    "query": "我想知道文本怎么变成向量",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["rag-embedding"]
+  },
+  {
+    "id": "ai-010",
+    "query": "怎样从大量向量中找到语义最相似的资料",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["rag-vector", "rag-vector-retrieval"]
+  },
+  {
+    "id": "ai-011",
+    "query": "怎样让大模型只根据检索资料回答",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["rag-context-injection"]
+  },
+  {
+    "id": "ai-012",
+    "query": "我想让大模型结合自己的资料回答问题",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["rag-architecture", "rag-context-injection", "rag-vector-retrieval"]
+  },
+  {
+    "id": "ai-013",
+    "query": "初步召回后怎样给候选文档重新排序",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["rag-rerank"]
+  },
+  {
+    "id": "ai-014",
+    "query": "怎么测量检索召回率和回答是否忠于资料",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["rag-evaluation"]
+  },
+  {
+    "id": "ai-015",
+    "query": "模型怎么调用后端函数",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["ai-tool-function-calling"]
+  },
+  {
+    "id": "ai-016",
+    "query": "什么是会规划任务并使用工具的智能体",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["agent-concepts", "agent-planning", "agent-tool-use"]
+  },
+  {
+    "id": "ai-017",
+    "query": "智能体如何编排多个步骤并根据结果继续执行",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["agent-workflow", "agent-planning"]
+  },
+  {
+    "id": "ai-018",
+    "query": "高风险操作前怎样让人确认后再继续",
+    "domain": "AI_APPLICATION",
+    "relevantIds": ["agent-human-loop"]
+  }
+]
