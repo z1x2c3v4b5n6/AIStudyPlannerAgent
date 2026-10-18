@@ -8,6 +8,12 @@ import com.yhk.aistudyplanner.ai.config.AiPlanningProperties;
 import com.yhk.aistudyplanner.ai.gateway.PlanningGateway;
 import com.yhk.aistudyplanner.ai.gateway.AiProviderException;
 import com.yhk.aistudyplanner.common.exception.*;
+import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchRequest;
+import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchResult;
+import com.yhk.aistudyplanner.knowledge.model.KnowledgeContext;
+import com.yhk.aistudyplanner.knowledge.service.KnowledgeContextFormatter;
+import com.yhk.aistudyplanner.knowledge.service.KnowledgeRetriever;
+import com.yhk.aistudyplanner.knowledge.service.LearningPathKnowledgeQueryBuilder;
 import com.yhk.aistudyplanner.learningpath.dto.*;
 import com.yhk.aistudyplanner.learningpath.vo.LearningPathDraftView;
 import com.yhk.aistudyplanner.subject.service.SubjectService;
@@ -26,10 +32,16 @@ public class LearningPathAiService {
     private final AiPlanningProperties properties; private final ObjectProvider<PlanningGateway> gateways;
     private final LearningPathPromptService prompts; private final ObjectMapper mapper;
     private final SubjectService subjects; private final com.yhk.aistudyplanner.auth.service.AuthSessionService session; private final Clock clock;
+    private final KnowledgeRetriever knowledgeRetriever;
+    private final LearningPathKnowledgeQueryBuilder knowledgeQueryBuilder;
+    private final KnowledgeContextFormatter knowledgeContextFormatter;
     public LearningPathAiService(AiPlanningProperties properties,ObjectProvider<PlanningGateway> gateways,
             LearningPathPromptService prompts,ObjectMapper mapper,SubjectService subjects,
-            com.yhk.aistudyplanner.auth.service.AuthSessionService session,Clock clock){
+            com.yhk.aistudyplanner.auth.service.AuthSessionService session,Clock clock,
+            KnowledgeRetriever knowledgeRetriever,LearningPathKnowledgeQueryBuilder knowledgeQueryBuilder,
+            KnowledgeContextFormatter knowledgeContextFormatter){
         this.properties=properties;this.gateways=gateways;this.prompts=prompts;this.mapper=mapper;this.subjects=subjects;this.session=session;this.clock=clock;
+        this.knowledgeRetriever=knowledgeRetriever;this.knowledgeQueryBuilder=knowledgeQueryBuilder;this.knowledgeContextFormatter=knowledgeContextFormatter;
     }
     public LearningPathDraftView generate(LearningPathGenerateRequest request){
         LocalDate today=LocalDate.now(clock); LocalDate start=request.startDate()==null?today:request.startDate();
@@ -38,7 +50,14 @@ public class LearningPathAiService {
         validateDuration(start,request.targetDate());
         if(request.subjectId()!=null)subjects.requireOwned(request.subjectId(),session.currentUserId());
         PlanningGateway gateway=gateways.getIfAvailable(); if(!properties.configured()||gateway==null)throw new BusinessException(ErrorCode.AI_NOT_CONFIGURED);
-        String userPrompt=prompts.user(request,today,clock.getZone().getId());
+        var retrievalQuery=knowledgeQueryBuilder.build(request);
+        var searchRequest=new KnowledgeSearchRequest(retrievalQuery.text(),retrievalQuery.domain(),KnowledgeSearchRequest.DEFAULT_LIMIT);
+        List<KnowledgeSearchResult> knowledgeResults=knowledgeRetriever.search(searchRequest);
+        KnowledgeContext knowledgeContext=knowledgeContextFormatter.format(knowledgeResults);
+        LOGGER.info("Learning Path knowledge retrieval completed: domain={}, resultCount={}, contextUnits={}, contextCharacters={}",
+                retrievalQuery.domain()==null?"ALL":retrievalQuery.domain(),knowledgeResults.size(),knowledgeContext.unitCount(),knowledgeContext.characterCount());
+        if(LOGGER.isDebugEnabled())LOGGER.debug("Learning Path knowledge context unitIds={}",knowledgeContext.unitIds());
+        String userPrompt=prompts.user(request,today,clock.getZone().getId(),knowledgeContext.text());
         try{return generateValidated(gateway,prompts.system(),userPrompt,request,start);}
         catch(BusinessException exception){
             if(exception.getErrorCode()!=ErrorCode.LEARNING_PATH_INVALID&&exception.getErrorCode()!=ErrorCode.AI_RESPONSE_INVALID)throw exception;
@@ -117,7 +136,7 @@ public class LearningPathAiService {
         validateCapacity(total,durationDays,request.dailyMinutes());
         return new LearningPathDraftView(model.title().trim(),trim(model.summary()),request.subjectId(),request.requirement().trim(),trim(request.currentLevel()),trim(request.targetLevel()),request.dailyMinutes(),start,request.targetDate(),trim(request.preferences()),Math.toIntExact(total),List.copyOf(stages));
     }
-    private List<String> clean(List<String> values){if(values==null||values.size()>10)return List.of();return values.stream().filter(StringUtils::hasText).map(String::trim).filter(v->v.length()<=300).distinct().toList();}
+    private List<String> clean(List<String> values){if(values==null||values.size()>3)return List.of();return values.stream().filter(StringUtils::hasText).map(String::trim).filter(v->v.length()<=300).distinct().toList();}
     private boolean text(String v,int max){return StringUtils.hasText(v)&&v.trim().length()<=max;}
     private Integer durationDays(LocalDate start,LocalDate target){return target==null?null:Math.toIntExact(ChronoUnit.DAYS.between(start,target)+1);}
     private void validateDuration(LocalDate start,LocalDate target){Integer days=durationDays(start,target);if(days!=null&&days>10)throw new BusinessException(ErrorCode.LEARNING_PATH_DURATION_EXCEEDED);}
