@@ -29,6 +29,7 @@
 - 完成计划项时记录实际开始时间、结束时间、学习反馈，并可选择联动完成原任务
 - 实际学习时长写入学习记录并实时进入统计
 - AI 长期学习路径：阶段、知识点、学习目标、学习方法、完成标准和建议学习日
+- Learning Path 生成前通过本地结构化知识库执行确定性 Top-8 检索，并将受控知识上下文注入模型 Prompt
 - 学习路径节点经用户确认后转换为真实 StudyTask，再进入现有每日计划
 - 路径进度从关联任务真实状态推导，未关联节点才使用自身待学习/跳过状态
 
@@ -98,7 +99,22 @@ AI 不能创建、修改或完成业务数据。快速创建任务也不是 AI �
 
 `KnowledgeRetriever` 使用 deterministic weighted keyword/tag retrieval，对 topic、alias、tag、stage、key point、learning objective 和 prerequisite 进行加权匹配，返回分数及命中词，因此检索结果稳定且可解释。知识资源在应用启动时从 classpath 加载并完成领域一致性、ID 唯一性及内容完整性校验，后续查询只读取不可变内存快照。
 
-当前 Phase C-1 尚未将 Knowledge Retrieval 注入 AI Learning Path，现有 DeepSeek 路径生成行为保持不变。RAG Prompt integration 将在下一阶段完成；当前没有 Vector RAG、Embedding、Web Search 或 Knowledge Graph。
+Learning Path 已接入知识检索增强：后端从 `requirement`、`currentLevel`、`targetLevel` 和 `preferences` 构造查询，通过确定性规则选择 Java Backend、AI Application 或跨知识包检索，取得最多 8 个结果。随后只保留主题、阶段、难度、前置知识、学习目标、关键点和命中词，组装为有长度上限的 `Retrieved Knowledge Context`；检索分数、别名和标签不会进入 Prompt。
+
+```mermaid
+flowchart LR
+    A[LearningPathGenerateRequest] --> B[构造知识检索查询]
+    B --> C[确定性 Domain Detection]
+    C --> D[KnowledgeRetriever Top 8]
+    D --> E[受控 Knowledge Context]
+    E --> F[Learning Path Prompt]
+    F --> G[DeepSeek Generation]
+    G --> H[原有 JSON Parse / Validation / Retry]
+```
+
+检索上下文被明确标记为不可信参考数据，不能覆盖系统指令、业务校验、时间容量或 JSON Schema。空检索结果仍按原有 AI Learning Path 流程生成；模型首次结果非法时复用同一份上下文重试一次，不会重复检索。
+
+当前实现属于 `Structured Local Knowledge + Deterministic Retrieval + Context Augmentation + LLM Generation`，不是 Vector RAG；没有 Embedding、向量数据库、Web Search 或 Knowledge Graph。
 
 ## 计划时长与真实时长
 
@@ -292,7 +308,7 @@ GitHub Actions 在 push 到 `main` 和针对 `main` 的 Pull Request 上并行�
 
 - AI 调用为非流式响应，未实现 SSE。
 - 当前是受控的规划流程，未实现 Agent 工具调用或 Function Calling。
-- 已实现本地结构化 Knowledge Base 与确定性检索，但尚未注入 Learning Path Prompt；未实现 Vector RAG、Embedding、向量数据库、MCP、多 Agent 和 AI 会话历史。
+- 已实现本地结构化 Knowledge Base、确定性检索和 Learning Path Prompt 上下文增强；未实现 Vector RAG、Embedding、向量数据库、Web Search、MCP、多 Agent 和 AI 会话历史。
 - 未支持多模型动态切换或用户自定义 API Key。
 - AI/规则生成来源没有持久化到历史计划。
 - 当前业务时间统一使用 Asia/Shanghai，尚未提供用户级时区设置。

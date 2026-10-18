@@ -13,9 +13,18 @@ import com.yhk.aistudyplanner.ai.gateway.AiProviderException;
 import com.yhk.aistudyplanner.common.exception.ErrorCode;
 import com.yhk.aistudyplanner.auth.service.AuthSessionService;
 import com.yhk.aistudyplanner.common.exception.BusinessException;
+import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchRequest;
+import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchResult;
+import com.yhk.aistudyplanner.knowledge.model.KnowledgeDifficulty;
+import com.yhk.aistudyplanner.knowledge.model.KnowledgeDomain;
+import com.yhk.aistudyplanner.knowledge.model.KnowledgeUnit;
+import com.yhk.aistudyplanner.knowledge.service.KnowledgeContextFormatter;
+import com.yhk.aistudyplanner.knowledge.service.KnowledgeRetriever;
+import com.yhk.aistudyplanner.knowledge.service.LearningPathKnowledgeQueryBuilder;
 import com.yhk.aistudyplanner.learningpath.dto.LearningPathGenerateRequest;
 import com.yhk.aistudyplanner.subject.service.SubjectService;
 import java.time.*;
+import java.util.List;
 import org.junit.jupiter.api.*;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
@@ -23,14 +32,50 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 class LearningPathAiServiceTest {
     private AiPlanningProperties properties; private PlanningGateway gateway; private LearningPathAiService service;
+    private KnowledgeRetriever knowledgeRetriever;
     private final LocalDate today=LocalDate.of(2026,8,23);
     @BeforeEach void setup(){
         properties=new AiPlanningProperties();properties.setEnabled(true);properties.setApiKey("test-key");gateway=mock(PlanningGateway.class);
+        knowledgeRetriever=mock(KnowledgeRetriever.class);when(knowledgeRetriever.search(any())).thenReturn(List.of());
         var factory=new StaticListableBeanFactory();factory.addBean("gateway",gateway);ObjectMapper mapper=new ObjectMapper().findAndRegisterModules();
         service=new LearningPathAiService(properties,factory.getBeanProvider(PlanningGateway.class),new LearningPathPromptService(mapper),mapper,
-                mock(SubjectService.class),mock(AuthSessionService.class),Clock.fixed(today.atStartOfDay(ZoneId.of("Asia/Shanghai")).toInstant(),ZoneId.of("Asia/Shanghai")));
+                mock(SubjectService.class),mock(AuthSessionService.class),Clock.fixed(today.atStartOfDay(ZoneId.of("Asia/Shanghai")).toInstant(),ZoneId.of("Asia/Shanghai")),
+                knowledgeRetriever,new LearningPathKnowledgeQueryBuilder(),new KnowledgeContextFormatter());
     }
-    @Test void parsesCompleteJavaLearningPathWithoutLosingFields(){when(gateway.generate(anyString(),anyString())).thenReturn(JavaLearningPathFixture.modelJson());var result=service.generate(request());assertEquals("Java后端面试学习路径",result.title());assertEquals(4,result.stages().size());var hashMap=result.stages().get(1).items().get(0);assertEquals("HashMap",hashMap.topic());assertTrue(hashMap.learningObjective().contains("put/get"));assertEquals(4,hashMap.learningMethod().size());assertEquals(3,hashMap.completionCriteria().size());assertEquals(120,hashMap.estimatedMinutes());assertEquals(3,hashMap.suggestedDay());assertEquals("面向对象",hashMap.prerequisite());assertTrue(hashMap.reason().contains("面试"));}
+    @Test void parsesCompleteJavaLearningPathWithoutLosingFields(){when(gateway.generate(anyString(),anyString())).thenReturn(JavaLearningPathFixture.modelJson());var result=service.generate(request());assertEquals("Java后端面试学习路径",result.title());assertEquals(4,result.stages().size());var hashMap=result.stages().get(1).items().get(0);assertEquals("HashMap",hashMap.topic());assertTrue(hashMap.learningObjective().contains("put/get"));assertEquals(3,hashMap.learningMethod().size());assertEquals(3,hashMap.completionCriteria().size());assertEquals(120,hashMap.estimatedMinutes());assertEquals(3,hashMap.suggestedDay());assertEquals("面向对象",hashMap.prerequisite());assertTrue(hashMap.reason().contains("面试"));}
+    @Test void retrievedKnowledgeIsIncludedInGatewayUserPrompt(){
+        when(knowledgeRetriever.search(any())).thenReturn(List.of(ragResult()));
+        when(gateway.generate(anyString(),anyString())).thenReturn(valid());
+        var ragRequest=new LearningPathGenerateRequest("7天学习RAG",null,"了解LLM","掌握RAG应用",120,today,today.plusDays(6),"重视上下文注入");
+        service.generate(ragRequest);
+        var userPrompt=ArgumentCaptor.forClass(String.class);
+        verify(gateway).generate(anyString(),userPrompt.capture());
+        assertAll(
+                ()->assertTrue(userPrompt.getValue().contains("retrievedKnowledgeContext")),
+                ()->assertTrue(userPrompt.getValue().contains("rag-context-injection")),
+                ()->assertTrue(userPrompt.getValue().contains("Context Injection")),
+                ()->assertTrue(userPrompt.getValue().contains("userRequest")));
+    }
+    @Test void emptyKnowledgeResultsStillGenerateNormally(){
+        when(gateway.generate(anyString(),anyString())).thenReturn(valid());
+        assertEquals("Java基础路线",service.generate(request()).title());
+        verify(knowledgeRetriever).search(any());
+        verify(gateway).generate(anyString(),anyString());
+    }
+    @Test void retrievalUsesTopEightAndDeterministicAiDomain(){
+        var aiRequest=new LearningPathGenerateRequest("学习RAG和Prompt",null,"了解LLM","构建AI应用",120,today,today.plusDays(6),"重视Agent");
+        when(gateway.generate(anyString(),anyString())).thenReturn(valid());
+        service.generate(aiRequest);
+        var search=ArgumentCaptor.forClass(KnowledgeSearchRequest.class);
+        verify(knowledgeRetriever).search(search.capture());
+        assertAll(
+                ()->assertEquals(KnowledgeSearchRequest.DEFAULT_LIMIT,search.getValue().limit()),
+                ()->assertTrue(search.getValue().limit()<=KnowledgeSearchRequest.DEFAULT_LIMIT),
+                ()->assertEquals(KnowledgeDomain.AI_APPLICATION,search.getValue().domain()),
+                ()->assertTrue(search.getValue().query().contains("构建AI应用")),
+                ()->assertFalse(search.getValue().query().contains(today.toString())),
+                ()->assertFalse(search.getValue().query().contains("120")));
+    }
     @Test void validFirstResponseCallsAiOnlyOnce(){when(gateway.generate(anyString(),anyString())).thenReturn(valid());assertEquals("Java基础路线",service.generate(request()).title());verify(gateway,times(1)).generate(anyString(),anyString());}
     @Test void tenDayWindowIsAllowed(){when(gateway.generate(anyString(),anyString())).thenReturn(pathWithNodes(6,10));var result=service.generate(request());assertEquals(6,result.stages().get(0).items().size());verify(gateway,times(1)).generate(anyString(),anyString());}
     @Test void elevenDayWindowIsRejectedBeforeCallingAi(){
@@ -56,7 +101,7 @@ class LearningPathAiServiceTest {
         BusinessException error=assertThrows(BusinessException.class,()->service.generate(request()));
         assertEquals(ErrorCode.LEARNING_PATH_INVALID,error.getErrorCode());
     }
-    @Test void invalidFirstResponseRetriesOnceWithConstraintReminder(){when(gateway.generate(anyString(),anyString())).thenReturn(valid().replace("\"estimatedMinutes\":60","\"estimatedMinutes\":0"),valid());assertEquals("Java基础路线",service.generate(request()).title());var systems=ArgumentCaptor.forClass(String.class);verify(gateway,times(2)).generate(systems.capture(),anyString());String retry=systems.getAllValues().get(1);assertAll(()->assertTrue(retry.contains("上一份结果没有通过系统业务约束")),()->assertTrue(retry.contains("stageNo必须从1开始连续")),()->assertTrue(retry.contains("sequenceNo必须在全路径从1开始连续")),()->assertTrue(retry.contains("topic不得重复")),()->assertTrue(retry.contains("suggestedDay必须非递减")),()->assertTrue(retry.contains("不得超过dailyMinutes")),()->assertTrue(retry.contains("总周期容量")),()->assertTrue(retry.contains("learningMethod必须具体且最多3条")),()->assertTrue(retry.contains("completionCriteria必须可验证且最多3条")),()->assertTrue(retry.contains("prerequisite不得依赖当前或未来节点")));}
+    @Test void invalidFirstResponseRetriesOnceWithConstraintReminder(){when(knowledgeRetriever.search(any())).thenReturn(List.of(ragResult()));when(gateway.generate(anyString(),anyString())).thenReturn(valid().replace("\"estimatedMinutes\":60","\"estimatedMinutes\":0"),valid());assertEquals("Java基础路线",service.generate(request()).title());var systems=ArgumentCaptor.forClass(String.class);var users=ArgumentCaptor.forClass(String.class);verify(gateway,times(2)).generate(systems.capture(),users.capture());verify(knowledgeRetriever,times(1)).search(any());assertEquals(users.getAllValues().get(0),users.getAllValues().get(1));String retry=systems.getAllValues().get(1);assertAll(()->assertTrue(retry.contains("上一份结果没有通过系统业务约束")),()->assertTrue(retry.contains("stageNo必须从1开始连续")),()->assertTrue(retry.contains("sequenceNo必须在全路径从1开始连续")),()->assertTrue(retry.contains("topic不得重复")),()->assertTrue(retry.contains("suggestedDay必须非递减")),()->assertTrue(retry.contains("不得超过dailyMinutes")),()->assertTrue(retry.contains("总周期容量")),()->assertTrue(retry.contains("learningMethod必须具体且最多3条")),()->assertTrue(retry.contains("completionCriteria必须可验证且最多3条")),()->assertTrue(retry.contains("prerequisite不得依赖当前或未来节点")));}
     @Test void truncatedResponseRetriesOnceWithCompactEightNodePrompt(){
         String truncated=valid().substring(0,valid().length()-8);
         when(gateway.generate(anyString(),anyString())).thenReturn(truncated,valid());
@@ -80,6 +125,10 @@ class LearningPathAiServiceTest {
     @Test void rejectsMissingLearningMethod(){when(gateway.generate(anyString(),anyString())).thenReturn(valid().replace("[\"阅读面向对象核心概念\",\"运行继承示例代码\"]","[]"));assertThrows(BusinessException.class,()->service.generate(request()));}
     @Test void rejectsOnlyGenericLearningMethods(){when(gateway.generate(anyString(),anyString())).thenReturn(valid().replace("[\"阅读面向对象核心概念\",\"运行继承示例代码\"]","[\"学习\",\"练习\",\"复习\"]"));assertThrows(BusinessException.class,()->service.generate(request()));}
     @Test void rejectsMissingCompletionCriteria(){when(gateway.generate(anyString(),anyString())).thenReturn(valid().replace("[\"能脱稿解释封装继承和多态的区别\"]","[]"));assertThrows(BusinessException.class,()->service.generate(request()));}
+    @Test void fourLearningMethodsTriggerRetryAndValidRetryPasses(){String invalid=valid().replace("[\"阅读面向对象核心概念\",\"运行继承示例代码\"]","[\"阅读核心概念\",\"运行示例代码\",\"绘制关系图\",\"完成专项练习\"]");when(gateway.generate(anyString(),anyString())).thenReturn(invalid,valid());assertEquals("Java基础路线",service.generate(request()).title());verify(gateway,times(2)).generate(anyString(),anyString());}
+    @Test void fourLearningMethodsTwiceReturnLearningPathInvalid(){String invalid=valid().replace("[\"阅读面向对象核心概念\",\"运行继承示例代码\"]","[\"阅读核心概念\",\"运行示例代码\",\"绘制关系图\",\"完成专项练习\"]");when(gateway.generate(anyString(),anyString())).thenReturn(invalid);BusinessException error=assertThrows(BusinessException.class,()->service.generate(request()));assertEquals(ErrorCode.LEARNING_PATH_INVALID,error.getErrorCode());verify(gateway,times(2)).generate(anyString(),anyString());}
+    @Test void fourCompletionCriteriaTriggerRetryAndValidRetryPasses(){String invalid=valid().replace("[\"能脱稿解释封装继承和多态的区别\"]","[\"能解释封装作用\",\"能区分继承组合\",\"能说明多态机制\",\"能独立完成示例\"]");when(gateway.generate(anyString(),anyString())).thenReturn(invalid,valid());assertEquals("Java基础路线",service.generate(request()).title());verify(gateway,times(2)).generate(anyString(),anyString());}
+    @Test void fourCompletionCriteriaTwiceReturnLearningPathInvalid(){String invalid=valid().replace("[\"能脱稿解释封装继承和多态的区别\"]","[\"能解释封装作用\",\"能区分继承组合\",\"能说明多态机制\",\"能独立完成示例\"]");when(gateway.generate(anyString(),anyString())).thenReturn(invalid);BusinessException error=assertThrows(BusinessException.class,()->service.generate(request()));assertEquals(ErrorCode.LEARNING_PATH_INVALID,error.getErrorCode());verify(gateway,times(2)).generate(anyString(),anyString());}
     @Test void rejectsFutureTopicAsPrerequisite(){String raw=twoItems("HashMap",2,60).replace("\"prerequisite\":null","\"prerequisite\":\"HashMap\"");when(gateway.generate(anyString(),anyString())).thenReturn(raw);assertThrows(BusinessException.class,()->service.generate(request()));}
     @Test void rejectsCurrentTopicAsItsOwnPrerequisite(){when(gateway.generate(anyString(),anyString())).thenReturn(valid().replace("\"prerequisite\":null","\"prerequisite\":\"面向对象\""));assertThrows(BusinessException.class,()->service.generate(request()));}
     @Test void rejectsSuggestedDayMovingBackwards(){String raw=twoItems("HashMap",1,60).replaceFirst("\"suggestedDay\":1","\"suggestedDay\":2");when(gateway.generate(anyString(),anyString())).thenReturn(raw);assertThrows(BusinessException.class,()->service.generate(request()));}
@@ -123,6 +172,7 @@ class LearningPathAiServiceTest {
     @Test void providerFailureReturnsSafeBusinessError(){when(gateway.generate(anyString(),anyString())).thenThrow(new AiProviderException(ErrorCode.AI_PROVIDER_UNAVAILABLE));BusinessException error=assertThrows(BusinessException.class,()->service.generate(request()));assertEquals(ErrorCode.AI_PROVIDER_UNAVAILABLE,error.getErrorCode());verify(gateway,times(1)).generate(anyString(),anyString());}
     private LearningPathGenerateRequest request(){return new LearningPathGenerateRequest("复习Java",null,"基础一般","面试",120,today,LocalDate.of(2026,9,1),"轻松");}
     private String valid(){return "{\"title\":\"Java基础路线\",\"summary\":\"系统复习\",\"stages\":[{\"stageNo\":1,\"title\":\"语言基础\",\"description\":\"基础\",\"items\":[{\"sequenceNo\":1,\"topic\":\"面向对象\",\"learningObjective\":\"理解封装继承多态的核心概念\",\"learningMethod\":[\"阅读面向对象核心概念\",\"运行继承示例代码\"],\"completionCriteria\":[\"能脱稿解释封装继承和多态的区别\"],\"estimatedMinutes\":60,\"suggestedDay\":1,\"prerequisite\":null,\"reason\":\"基础能力\"}]}]}";}
+    private KnowledgeSearchResult ragResult(){return new KnowledgeSearchResult(new KnowledgeUnit("rag-context-injection",KnowledgeDomain.AI_APPLICATION,"Context Injection","RAG",KnowledgeDifficulty.INTERMEDIATE,List.of("RAG上下文"),List.of("检索基础"),List.of("理解检索知识如何安全进入Prompt"),List.of("Context Injection","Grounding"),List.of("rag","prompt")),12,List.of("RAG","Context Injection"));}
     private String twoItems(String secondTopic,int secondDay,int secondMinutes){return """
             {"title":"Java基础路线","summary":"系统复习","stages":[{"stageNo":1,"title":"语言基础","description":"基础","items":[
             {"sequenceNo":1,"topic":"面向对象","learningObjective":"理解封装继承多态的核心概念","learningMethod":["阅读面向对象核心概念","运行继承示例代码"],"completionCriteria":["能脱稿解释封装继承和多态的区别"],"estimatedMinutes":60,"suggestedDay":1,"prerequisite":null,"reason":"基础能力"},
