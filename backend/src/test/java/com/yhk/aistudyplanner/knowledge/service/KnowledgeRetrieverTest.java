@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchRequest;
+import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchResult.MatchType;
 import com.yhk.aistudyplanner.knowledge.model.KnowledgeDomain;
 import com.yhk.aistudyplanner.knowledge.repository.ResourceKnowledgeRepository;
 import java.util.List;
@@ -125,6 +126,44 @@ class KnowledgeRetrieverTest {
         assertThrows(IllegalArgumentException.class, () -> new KnowledgeSearchRequest("Java", null, 0));
         assertThrows(IllegalArgumentException.class, () -> new KnowledgeSearchRequest("Java", null, 21));
         assertTrue(retriever.search(new KnowledgeSearchRequest("Java", null)).size() <= 8);
+    }
+
+    @Test
+    void punctuationOnlyAndGenericQueriesReturnNoResults() {
+        assertThrows(IllegalArgumentException.class, () -> new KnowledgeSearchRequest("  ", null));
+        assertTrue(retriever.search(new KnowledgeSearchRequest("， — ！？", null)).isEmpty());
+        assertTrue(retriever.search(new KnowledgeSearchRequest("Java，基础，面试", null)).isEmpty());
+    }
+
+    @Test
+    void normalizationPreservesOriginalAndEquatesBilingualTerminology() {
+        String original = "  ＲＥＴＲＩＥＶＡＬ-Augmented  Generation，检索增强生成  ";
+        var request = new KnowledgeSearchRequest(original, null);
+        var query = new KnowledgeQueryNormalizer().normalize(request.query());
+        assertEquals(original, query.original());
+        assertEquals("retrieval augmented generation 检索增强生成", query.surface());
+        assertEquals("rag rag", query.canonical());
+    }
+
+    @Test
+    void repeatedSynonymsProduceOneScoringReasonPerConcept() {
+        var request = new KnowledgeSearchRequest("比较 Retrieval-Augmented Generation、检索增强生成", null);
+        var top = retriever.search(request).get(0);
+        assertEquals("rag-architecture", top.unit().id());
+        assertTrue(top.matchReasons().stream().anyMatch(reason -> reason.type() == MatchType.SYNONYM));
+        assertEquals(1, top.matchReasons().stream().filter(reason -> reason.evidence().equals("rag")).count());
+        assertEquals(top.score(), top.matchReasons().stream().mapToInt(reason -> reason.points()).sum());
+        assertEquals(retriever.search(request), retriever.search(request));
+    }
+
+    @Test
+    void exactTitleOutranksIncidentalMentionsAndWordsRespectBoundaries() {
+        var top = retriever.search(new KnowledgeSearchRequest(" Ｓｔｒｉｎｇ ", null)).get(0);
+        assertEquals("java-string", top.unit().id());
+        assertEquals("topic", top.matchReasons().get(0).field());
+        assertEquals(MatchType.EXACT, top.matchReasons().get(0).type());
+        assertTrue(retriever.search(new KnowledgeSearchRequest("substringing", null)).isEmpty());
+        assertTrue(retriever.search(new KnowledgeSearchRequest("baggage", null)).isEmpty());
     }
 
     private List<String> topics(List<com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchResult> results) {
