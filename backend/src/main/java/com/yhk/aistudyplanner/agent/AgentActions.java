@@ -19,7 +19,6 @@ import com.yhk.aistudyplanner.task.vo.TaskView;
 import jakarta.validation.constraints.*;
 import java.time.*;
 import java.util.*;
-import java.util.function.Supplier;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 
@@ -32,7 +31,9 @@ class AgentActions {
                 @NotNull @Min(15) @Max(720) Integer availableMinutes,
                 @Size(max=500) String requirement,
                 @NotEmpty @Size(max=8) List<@NotNull @Positive Long> taskIds) {}
-    record Proposal(String type, String target, JsonNode preview, Supplier<Object> apply) {}
+    record Proposal(String type, String target, JsonNode preview, JsonNode payload) {}
+    record EditExecution(TaskView before, TaskUpdateRequest request, LocalDate changedDate, LocalDateTime changedDue) {}
+    record PlanExecution(List<TaskView> selected, PlanDraftRequest request, PlanDraftView preview) {}
 
     private static final String CREATE = "propose_task_create";
     private static final String EDIT = "propose_task_update";
@@ -86,10 +87,7 @@ class AgentActions {
         }
         if (request.estimatedMinutes() > 1440) throw new BusinessException(AGENT_TOOL_INVALID);
         var preview = Map.of("科目", subject.getName(), "任务", request);
-        return new Proposal(CREATE, request.title(), mapper.valueToTree(preview), () -> {
-            validateDates(request.plannedDate(), request.dueAt());
-            return tasks.create(request);
-        });
+        return new Proposal(CREATE, request.title(), mapper.valueToTree(preview), mapper.valueToTree(request));
     }
 
     private Proposal edit(Edit args, Map<Long, TaskView> observed) {
@@ -108,10 +106,8 @@ class AgentActions {
         change(changes, "计划日期", before.plannedDate(), request.plannedDate());
         change(changes, "截止时间", before.dueAt(), request.dueAt());
         if (changes.isEmpty()) throw new BusinessException(AGENT_TOOL_INVALID);
-        return new Proposal(EDIT, before.title(), mapper.valueToTree(changes), () -> {
-            validateDates(args.plannedDate(), args.dueAt());
-            return tasks.updateIfUnchanged(before, request);
-        });
+        return new Proposal(EDIT, before.title(), mapper.valueToTree(changes),
+                mapper.valueToTree(new EditExecution(before, request, args.plannedDate(), args.dueAt())));
     }
 
     private Proposal plan(Plan args, Map<Long, TaskView> observed) {
@@ -120,12 +116,33 @@ class AgentActions {
                 args.requirement(), selected.stream().map(TaskView::subjectId).distinct().toList(), args.taskIds());
         PlanDraftView preview = plans.draft(request);
         if (preview.items().isEmpty()) throw new BusinessException(PLAN_DRAFT_EMPTY);
-        return new Proposal(PLAN, args.planDate().toString(), mapper.valueToTree(preview), () -> {
-            for (TaskView expected : selected) requireObserved(expected.id(), observed);
-            PlanDraftView confirmed = plans.draft(request);
-            if (!preview.items().equals(confirmed.items())) throw new BusinessException(AGENT_ACTION_CONFLICT);
-            return confirmed;
-        });
+        return new Proposal(PLAN, args.planDate().toString(), mapper.valueToTree(preview),
+                mapper.valueToTree(new PlanExecution(selected, request, preview)));
+    }
+
+    Object apply(Proposal proposal) {
+        return switch (proposal.type()) {
+            case CREATE -> {
+                var request = mapper.convertValue(proposal.payload(), TaskCreateRequest.class);
+                validateDates(request.plannedDate(), request.dueAt());
+                yield tasks.create(request);
+            }
+            case EDIT -> {
+                var edit = mapper.convertValue(proposal.payload(), EditExecution.class);
+                validateDates(edit.changedDate(), edit.changedDue());
+                yield tasks.updateIfUnchanged(edit.before(), edit.request());
+            }
+            case PLAN -> {
+                var plan = mapper.convertValue(proposal.payload(), PlanExecution.class);
+                for (TaskView expected : plan.selected()) {
+                    if (!expected.equals(tasks.get(expected.id()))) throw new BusinessException(AGENT_ACTION_CONFLICT);
+                }
+                var confirmed = plans.draft(plan.request());
+                if (!plan.preview().items().equals(confirmed.items())) throw new BusinessException(AGENT_ACTION_CONFLICT);
+                yield confirmed;
+            }
+            default -> throw new BusinessException(AGENT_TOOL_INVALID);
+        };
     }
 
     private TaskView requireObserved(Long id, Map<Long, TaskView> observed) {

@@ -66,7 +66,9 @@ class AgentWorkflowTest {
         var actions = new AgentActions(tools, tasks, subjects, null, plans, auth, clock, mapper);
         var factory = new StaticListableBeanFactory(Map.of("model", gateway));
         service = new AgentService(factory.getBeanProvider(AgentGateway.class), tools, mapper, transactions, actions, clock);
-        sessions = new AgentSessions(auth, service, mapper, clock, transactions);
+        var database = new AgentTestDatabase("V5__agent_sessions.sql");
+        sessions = new AgentSessions(auth, service, actions, new AgentSessionStore(database.jdbc, mapper),
+                mapper, clock, database.transactions);
         mvc = MockMvcBuilders.standaloneSetup(new AgentController(sessions))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }

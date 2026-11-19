@@ -20,13 +20,20 @@ public class AgentController {
     }
 
     @GetMapping
-    public ApiResponse<List<AgentSessions.SessionSummary>> list() {
-        return ApiResponse.success(sessions.list());
+    public ApiResponse<List<AgentSessions.SessionSummary>> list(@RequestParam(defaultValue="1") int page,
+                                                          @RequestParam(defaultValue="10") int size) {
+        return ApiResponse.success(sessions.list(page, size));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<AgentSessions.SessionView> get(@PathVariable UUID id) {
         return ApiResponse.success(sessions.get(id));
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable UUID id) {
+        sessions.delete(id);
+        return ApiResponse.success(null);
     }
 
     @PostMapping("/{id}/messages")
