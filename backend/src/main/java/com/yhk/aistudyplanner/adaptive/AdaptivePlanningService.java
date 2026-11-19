@@ -43,18 +43,35 @@ public class AdaptivePlanningService {
     public JsonNode compare(Request request) { return mapper.valueToTree(calculate(request)); }
 
     @Transactional
-    public JsonNode preview(Request request) {
+    public JsonNode preview(Request request) { return open(request,"PLAN"); }
+
+    @Transactional
+    public JsonNode workflowPreview(Request request) { return open(request,"WORKFLOW_PLAN"); }
+
+    private JsonNode open(Request request,String kind) {
         var data=calculate(request);
-        return mapper.valueToTree(proposals.open("PLAN", data, data));
+        return mapper.valueToTree(proposals.open(kind, data, data));
     }
 
     @Transactional
-    public JsonNode decide(UUID id, Decision input) {
+    public JsonNode decide(UUID id, Decision input) { return decide(id,input,"PLAN"); }
+
+    @Transactional
+    public JsonNode decideWorkflow(UUID id, Decision input) { return decide(id,input,"WORKFLOW_PLAN"); }
+
+    private JsonNode decide(UUID id, Decision input,String kind) {
         if (input == null || input.confirm()==null || input.digest()==null || !input.digest().matches("[a-f0-9]{64}"))
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         var strategy=input.confirm() ? strategy(input.strategy()) : null;
-        return proposals.decide(id,"PLAN",input.digest(), strategy==null ? "REJECT" : strategy.name(),
+        return proposals.decide(id,kind,input.digest(), strategy==null ? "REJECT" : strategy.name(),
                 payload -> apply(id, mapper.convertValue(payload,PreviewData.class), strategy));
+    }
+
+    @Transactional
+    public Object applyReviewed(JsonNode preview,String chosen) {
+        long owner=auth.currentUserId();
+        jdbc.queryForList("SELECT id FROM `user` WHERE id=? FOR UPDATE",Long.class,owner);
+        return apply(UUID.randomUUID(),mapper.convertValue(preview,PreviewData.class),strategy(chosen));
     }
 
     private Object apply(UUID id, PreviewData data, AdaptivePlanner.Strategy strategy) {

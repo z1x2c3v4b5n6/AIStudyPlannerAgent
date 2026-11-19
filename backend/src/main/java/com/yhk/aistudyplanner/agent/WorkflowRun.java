@@ -7,13 +7,16 @@ import java.util.UUID;
 
 record WorkflowRun(UUID id, UUID sessionId, String input, String scenario, long revision, Status status,
                    Instant expiresAt, Instant updatedAt, List<Node> nodes) {
-    enum Status { READY, RUNNING, PAUSED, WAITING_APPROVAL, SUCCEEDED, FAILED, CANCELLED, TIMED_OUT }
-    enum Kind { START, PLAN, TOOL, CONDITION, APPROVAL, RESULT, END, ERROR }
+    enum Status { READY, RUNNING, PAUSED, WAITING_INPUT, WAITING_APPROVAL, SUCCEEDED, FAILED, CANCELLED, TIMED_OUT }
+    enum Kind { START, PLAN, TOOL, CLARIFY, CONDITION, APPROVAL, RESULT, END, ERROR }
     enum StepStatus { READY, RUNNING, WAITING, DONE, SKIPPED, FAILED }
 
     record Node(String id, Kind kind, String operation, List<String> dependsOn, String guard,
                 boolean external, JsonNode input, StepStatus status, JsonNode result, String error,
                 int attempts, Instant startedAt, Instant endedAt) {
+        Node withInput(JsonNode value) {
+            return new Node(id,kind,operation,dependsOn,guard,external,value,status,result,error,attempts,startedAt,endedAt);
+        }
         Node start(Instant at) {
             return new Node(id, kind, operation, dependsOn, guard, external, input, StepStatus.RUNNING,
                     null, null, attempts + 1, at, null);

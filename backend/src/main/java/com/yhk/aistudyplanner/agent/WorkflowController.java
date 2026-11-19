@@ -26,12 +26,19 @@ public class WorkflowController {
     @PostMapping("/workflows/{id}/advance")
     public ApiResponse<WorkflowRun> advance(@PathVariable UUID id) { return ApiResponse.success(engine.advance(id)); }
     @PostMapping("/workflows/{id}/decision")
-    public ApiResponse<WorkflowRun> decide(@PathVariable UUID id, @Valid @RequestBody AgentController.Decision input) {
-        return ApiResponse.success(engine.decide(id, input.digest(), input.confirm()));
+    public ApiResponse<WorkflowRun> decide(@PathVariable UUID id, @Valid @RequestBody WorkflowDecision input) {
+        return ApiResponse.success(engine.decide(id, input.digest(), input.confirm(),input.strategy()));
     }
     @PostMapping("/workflows/{id}/control")
     public ApiResponse<WorkflowRun> control(@PathVariable UUID id, @Valid @RequestBody Control input) {
         return ApiResponse.success(engine.control(id, input.command()));
     }
+    @PostMapping("/workflows/{id}/clarification")
+    public ApiResponse<WorkflowRun> clarify(@PathVariable UUID id,@Valid @RequestBody Clarification input) {
+        return ApiResponse.success(engine.clarify(id,input.dailyMinutes(),input.subjectId()));
+    }
+    record Clarification(@NotNull @Min(15) @Max(720) Integer dailyMinutes,@Positive Long subjectId) {}
+    record WorkflowDecision(@NotBlank @Pattern(regexp="[a-f0-9]{64}") String digest,
+                            @NotNull Boolean confirm, String strategy) {}
     record Control(@NotNull WorkflowEngine.Control command) {}
 }

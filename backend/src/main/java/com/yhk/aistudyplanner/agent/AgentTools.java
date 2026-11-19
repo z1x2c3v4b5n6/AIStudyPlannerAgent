@@ -96,7 +96,10 @@ class AgentTools {
                         .map(hit -> Map.of("topic", hit.unit().topic(), "keyPoints", hit.unit().keyPoints())).toList()));
     }
 
-    private <T> void register(String name, String description, Class<T> type, Function<T, Result> execute) {
+    @org.springframework.beans.factory.annotation.Autowired
+    void registerAdaptive(AdaptiveAgentTools adaptive) { adaptive.register(this); }
+
+    <T> void register(String name, String description, Class<T> type, Function<T, Result> execute) {
         tools.put(name, new Tool<>(name, description, type, execute));
     }
 

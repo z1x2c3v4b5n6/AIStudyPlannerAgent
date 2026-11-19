@@ -24,7 +24,7 @@ class WorkflowLearningSteps {
     private static final Pattern MINUTES = Pattern.compile("(\\d{1,4})\\s*分钟");
     private static final Pattern HOURS = Pattern.compile("(\\d{1,3}|[一二两三四五六七八九十])\\s*(?:个)?小时");
     private static final Pattern ISO_DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
-    private static final Pattern TIME = Pattern.compile("\\b(\\d{1,2}):(\\d{2})\\b");
+    private static final Pattern TIME = Pattern.compile("(?<!\\d)(\\d{1,2}):(\\d{2})(?!\\d)");
     private static final String APPROVAL = "approval";
     private static final String CONDITION = "condition";
     record Plan(String scenario, List<WorkflowRun.Node> nodes) {}
@@ -49,10 +49,18 @@ class WorkflowLearningSteps {
         this.clock = clock;
     }
 
+    private AdaptiveAgentTools adaptive;
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAdaptive(AdaptiveAgentTools adaptive) { this.adaptive=adaptive; }
+
     Plan plan(String text) {
         if (text == null || text.isBlank() || text.length() > AgentService.MAX_INPUT
                 || text.matches("(?s).*(删除|清空|批量完成|标记完成).*")) {
             throw new BusinessException(AGENT_TOOL_INVALID);
+        }
+        if(adaptive!=null){
+            var intent=adaptive.createIntent(text);
+            if(intent!=null) return adaptivePlan(intent);
         }
         // Parse supported intents only. The output graph and write operations are server-owned.
         String scenario;
@@ -83,6 +91,38 @@ class WorkflowLearningSteps {
         return build(scenario, definitions, inputs);
     }
 
+    private Plan adaptivePlan(JsonNode input) {
+        var definitions=new ArrayList<>(List.of(def("START","start"),def("PLAN","plan")));
+        boolean replan=input.path("replan").asBoolean();
+        if(replan&&!input.hasNonNull("budget")) definitions.add(def("CLARIFY","clarify"));
+        if(input.path("overview").asBoolean()||replan){
+            definitions.add(def("TOOL","learningProfile"));
+            definitions.add(def("TOOL","diagnostics"));
+        }
+        if(input.path("review").asBoolean()) definitions.add(def("TOOL","reviewCandidates"));
+        if(replan){
+            definitions.add(def("TOOL","adaptivePreview"));
+            definitions.add(def("CONDITION","adaptiveCondition"));
+            definitions.add(new Definition(WorkflowRun.Kind.APPROVAL,"adaptiveApproval","adaptiveCondition"));
+            definitions.add(new Definition(WorkflowRun.Kind.TOOL,"adaptiveApply","adaptiveCondition"));
+        }
+        definitions.add(def("RESULT","adaptiveResult"));
+        definitions.add(def("END","end"));
+        return build("ADAPTIVE",definitions,input);
+    }
+
+    private JsonNode inputs(WorkflowRun run){
+        return run.nodes().stream().filter(node->node.id().equals("plan")).findFirst().orElseThrow().input();
+    }
+    private JsonNode adaptiveSummary(WorkflowRun run){
+        var result=mapper.createObjectNode();
+        for(var node:run.nodes()){
+            if(Set.of("diagnostics","reviewCandidates","adaptiveCondition","adaptiveApply").contains(node.id())
+                    && node.result()!=null) result.set(node.id(),node.result());
+        }
+        return result;
+    }
+
     private Plan build(String scenario, List<Definition> definitions, JsonNode inputs) {
         var nodes = new ArrayList<WorkflowRun.Node>();
         for (var item : definitions) {
@@ -107,10 +147,12 @@ class WorkflowLearningSteps {
             case START -> operation.equals("start");
             case PLAN -> Set.of("plan", "adjustment").contains(operation);
             case TOOL -> Set.of("tasks", "subjects", "knowledge", "records", "statistics", "paths",
-                    "calendar", "apply", "planDraft", "pathDraft").contains(operation);
-            case CONDITION -> operation.equals(CONDITION);
-            case APPROVAL -> operation.equals(APPROVAL);
-            case RESULT -> operation.equals("result");
+                    "calendar", "apply", "planDraft", "pathDraft", "learningProfile","diagnostics","reviewCandidates",
+                    "adaptivePreview","adaptiveApply").contains(operation);
+            case CLARIFY -> operation.equals("clarify");
+            case CONDITION -> Set.of(CONDITION,"adaptiveCondition").contains(operation);
+            case APPROVAL -> Set.of(APPROVAL,"adaptiveApproval").contains(operation);
+            case RESULT -> Set.of("result","adaptiveResult").contains(operation);
             case END -> operation.equals("end");
             case ERROR -> operation.equals("error");
         };
@@ -120,6 +162,25 @@ class WorkflowLearningSteps {
         return switch (node.operation()) {
             case "start" -> data(Map.of("message", "工作流开始"));
             case "plan" -> data(Map.of("scenario", run.scenario(), "inputs", node.input()));
+            case "clarify" -> data(Map.of("question","请补充每日可用分钟，并可选择优先科目"));
+            case "learningProfile" -> data(adaptive.profile(inputs(run).path("profileDays").asInt()));
+            case "diagnostics" -> data(adaptive.diagnosis(inputs(run).path("profileDays").asInt(),
+                    inputs(run).hasNonNull("budget")?inputs(run).path("budget").asInt():null));
+            case "reviewCandidates" -> data(adaptive.review(inputs(run).path("reviewTopic").asText(),20));
+            case "adaptivePreview" -> adaptive.workflowPreview(inputs(run));
+            case "adaptiveCondition" -> data(Map.of("proceed",
+                    java.util.stream.StreamSupport.stream(run.result("adaptivePreview").path("data").path("schemes").spliterator(),false)
+                            .anyMatch(scheme->!scheme.path("scheduled").isEmpty()),"reason","至少一个可保存方案才会申请授权"));
+            case "adaptiveApproval" -> {
+                var preview=run.result("adaptivePreview");
+                yield data(Map.of("digest",preview.path("digest").asText(),"preview",preview.path("data").path("schemes")));
+            }
+            case "adaptiveApply" -> {
+                var approval=run.nodes().stream().filter(item->item.id().equals("adaptiveApproval")).findFirst().orElseThrow();
+                if(approval.status()!=WorkflowRun.StepStatus.DONE) throw new BusinessException(AGENT_ACTION_CONFLICT);
+                yield adaptive.applyWorkflow(run.result("adaptivePreview"),approval.result().path("strategy").asText());
+            }
+            case "adaptiveResult" -> adaptiveSummary(run);
             case "tasks" -> candidates(run);
             case "subjects" -> read("list_subjects");
             case "knowledge" -> data(tools.run("search_knowledge", mapper.createObjectNode()
