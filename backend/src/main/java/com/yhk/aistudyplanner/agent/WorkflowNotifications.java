@@ -1,5 +1,7 @@
 package com.yhk.aistudyplanner.agent;
 
+import com.yhk.aistudyplanner.common.exception.BusinessException;
+import com.yhk.aistudyplanner.common.exception.ErrorCode;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.time.Duration;
@@ -8,10 +10,7 @@ import java.util.concurrent.*;
 import java.util.function.Function;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import static org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE;
 
 @Component
 class WorkflowNotifications {
@@ -24,7 +23,7 @@ class WorkflowNotifications {
         try {
             workers.execute(() -> stream(snapshots, initial, Math.min(after, initial.revision()), emitter));
         } catch (RejectedExecutionException error) {
-            throw new ResponseStatusException(SERVICE_UNAVAILABLE, "Workflow stream capacity reached");
+            throw new BusinessException(ErrorCode.AGENT_LIMIT);
         }
         return emitter;
     }
@@ -46,7 +45,7 @@ class WorkflowNotifications {
                 Thread.sleep(400);
                 run = snapshots.apply(run.id());
             }
-        } catch (IOException | IllegalStateException ignored) {
+        } catch (IOException | IllegalStateException | BusinessException ignored) {
             // The browser can recover with a fresh snapshot.
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
