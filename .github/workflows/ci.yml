@@ -58,6 +58,7 @@ jobs:
   workflow-e2e:
     name: Workflow E2E (MySQL, Redis, Chromium)
     runs-on: ubuntu-24.04
+    timeout-minutes: 8
     services:
       mysql:
         image: mysql:8.4
@@ -92,10 +93,16 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: mvn -B -f backend/pom.xml package -DskipTests
-      - working-directory: frontend
+      - name: Build Vue
+        working-directory: frontend
+        run: npm ci && npm run build
+      - name: Prepare Chromium
+        working-directory: frontend
         run: |
-          npm ci
-          npm run build
           npm install --no-save --package-lock=false playwright@1.58.2
-          npx playwright install --with-deps chromium
+          if command -v google-chrome >/dev/null; then
+            echo "C8_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
       - run: node tests/c8-e2e.mjs

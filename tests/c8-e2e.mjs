@@ -249,7 +249,7 @@ try {
     report.push('Live provider: task tool selection and actual tool response verified')
   }
 
-  browser = await chromium.launch({ headless: true })
+  browser = await chromium.launch({ headless: true, executablePath: process.env.C8_CHROMIUM_PATH || undefined })
   const page = await browser.newPage()
   const pageErrors = []
   page.on('pageerror', error => pageErrors.push(error.message))
