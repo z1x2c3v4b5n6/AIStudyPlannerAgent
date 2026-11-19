@@ -32,6 +32,7 @@ CREATE TABLE knowledge_document_version (
     software_version VARCHAR(80),
     body MEDIUMTEXT NOT NULL,
     content_hash CHAR(64) NOT NULL,
+    ingest_kind VARCHAR(24) NOT NULL,
     created_at DATETIME(3) NOT NULL,
     INDEX idx_knowledge_version_time (document_id,created_at),
     UNIQUE KEY uk_knowledge_version_hash (document_id,content_hash),

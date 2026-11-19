@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class KnowledgeHub {
     enum State { DRAFT, PENDING_REVIEW, APPROVED, PUBLISHED, SUPERSEDED, REJECTED, ARCHIVED }
+    enum Ingest { MANUAL_REVIEW, OFFICIAL_FETCH, PRIVATE_TEXT }
     enum Decision { SUBMIT, APPROVE, REJECT, PUBLISH, ROLLBACK, ARCHIVE }
     enum FeedbackType { HELPFUL, UNSOLVED, INCORRECT, STALE, INCOMPATIBLE, INCOMPLETE }
     enum QueryType { CONCEPT, CONFIGURATION, API, TROUBLESHOOTING, OTHER }
@@ -28,7 +29,7 @@ public class KnowledgeHub {
     record Import(@NotBlank @Size(max=200) String title, @NotBlank @Size(max=100000) String text,
                   @NotNull KnowledgeDomain domain, @Size(max=100) String unitId, @Size(max=80) String softwareVersion) {}
     record Version(String id, String documentId, State status, String title, String softwareVersion,
-                   String hash, LocalDateTime createdAt) {}
+                   String hash, Ingest ingestKind, LocalDateTime createdAt) {}
     record Review(@NotNull Decision decision, @NotBlank @Size(max=500) String reason) {}
     record Document(String id, Long owner, String sourceId, String origin, String unitId, KnowledgeDomain domain, String active) {}
     record Detail(Version version, String text, List<EvidenceText.Chunk> chunks) {}
@@ -103,26 +104,27 @@ public class KnowledgeHub {
     @Transactional
     public Version stage(String sourceId, Import input) {
         requireReviewer();
-        return stageCandidate(sourceId,input);
+        return stageCandidate(sourceId,input,Ingest.MANUAL_REVIEW);
     }
 
-    private Version stageCandidate(String sourceId, Import input) {
+    private Version stageCandidate(String sourceId, Import input, Ingest ingest) {
         var source = source(sourceId,true);
         if (source.domain()!=input.domain() || !Objects.equals(source.softwareVersion(),optional(input.softwareVersion())))
             throw error(ErrorCode.VALIDATION_ERROR);
-        String document = db.queryForList("SELECT id FROM knowledge_document WHERE source_id=?",String.class,sourceId)
+        String document = db.queryForList("SELECT id FROM knowledge_document WHERE source_id=? FOR UPDATE",String.class,sourceId)
                 .stream().findFirst().orElseGet(() -> createDocument(null,sourceId,source.url(),input));
         if (!Objects.equals(document(document,false).unitId(),optional(input.unitId())))
             throw error(ErrorCode.KNOWLEDGE_CONFLICT);
-        return append(document,input,State.PENDING_REVIEW);
+        return append(document,input,State.PENDING_REVIEW,ingest);
     }
 
     @Transactional
     public Version stageCapture(Source source, OfficialDocuments.Captured snapshot, String requestedUnit) {
-        var references = db.query("SELECT unit_id FROM knowledge_document WHERE source_id=?",
+        source(source.id(),true);
+        var references = db.query("SELECT unit_id FROM knowledge_document WHERE source_id=? FOR UPDATE",
                 (r,n)->Optional.ofNullable(r.getString(1)),source.id());
         String link = references.isEmpty() ? requestedUnit : references.get(0).orElse(null);
-        return stageCandidate(source.id(),new Import(snapshot.title(),snapshot.text(),source.domain(),link,source.softwareVersion()));
+        return stageCandidate(source.id(),new Import(snapshot.title(),snapshot.text(),source.domain(),link,source.softwareVersion()),Ingest.OFFICIAL_FETCH);
     }
 
     List<Source> dueSources(LocalDateTime cutoff) {
@@ -155,7 +157,7 @@ public class KnowledgeHub {
         if (db.queryForObject("SELECT COUNT(*) FROM knowledge_document WHERE owner_id=?",Integer.class,owner) >= 100)
             throw error(ErrorCode.AGENT_LIMIT);
         String id = createDocument(owner,null,null,input);
-        Version version = append(id,input,State.PUBLISHED);
+        Version version = append(id,input,State.PUBLISHED,Ingest.PRIVATE_TEXT);
         db.update("UPDATE knowledge_document SET active_version=? WHERE id=?",version.id(),id);
         return version;
     }
@@ -172,13 +174,13 @@ public class KnowledgeHub {
         return id;
     }
 
-    private Version append(String document, Import input, State state) {
+    private Version append(String document, Import input, State state, Ingest ingest) {
         String body = input.text().replace("\r\n","\n").replace('\r','\n').strip();
         if (body.isEmpty() || body.length() > 100000 || body.codePoints().anyMatch(cp ->
                 Character.isISOControl(cp) && cp!='\n' && cp!='\t')) throw error(ErrorCode.VALIDATION_ERROR);
         String title = input.title().strip();
         String hash = EvidenceText.digest(title + "\n" + body);
-        var prior = db.query("SELECT * FROM knowledge_document_version WHERE document_id=? AND content_hash=?",
+        var prior = db.query("SELECT * FROM knowledge_document_version WHERE document_id=? AND content_hash=? FOR UPDATE",
                 this::readVersion,document,hash);
         if (!prior.isEmpty()) return prior.get(0);
         if (db.queryForObject("SELECT COUNT(*) FROM knowledge_document_version WHERE document_id=?",Integer.class,document) >= 100)
@@ -187,9 +189,9 @@ public class KnowledgeHub {
         if (chunks.isEmpty() || chunks.size() > 250) throw error(ErrorCode.VALIDATION_ERROR);
         String id = UUID.randomUUID().toString();
         db.update("""
-                INSERT INTO knowledge_document_version(id,document_id,status,title,software_version,body,content_hash,created_at)
-                VALUES(?,?,?,?,?,?,?,?)
-                """,id,document,state.name(),title,optional(input.softwareVersion()),body,hash,now());
+                INSERT INTO knowledge_document_version(id,document_id,status,title,software_version,body,content_hash,ingest_kind,created_at)
+                VALUES(?,?,?,?,?,?,?,?,?)
+                """,id,document,state.name(),title,optional(input.softwareVersion()),body,hash,ingest.name(),now());
         db.batchUpdate("INSERT INTO knowledge_chunk(version_id,ordinal,heading,start_line,excerpt) VALUES(?,?,?,?,?)",
                 chunks.stream().map(chunk -> new Object[]{id,chunk.ordinal(),chunk.heading(),chunk.line(),chunk.excerpt()}).toList());
         return version(id);
@@ -201,7 +203,7 @@ public class KnowledgeHub {
         var candidate = version(id);
         var document = document(candidate.documentId(),true);
         if (document.owner()!=null) throw error(ErrorCode.RESOURCE_NOT_FOUND);
-        candidate = version(id);
+        candidate = version(id,true);
         var action = review.decision();
         State next = switch (action) {
             case SUBMIT -> require(candidate,State.DRAFT,State.PENDING_REVIEW);
@@ -312,10 +314,14 @@ public class KnowledgeHub {
                         r.getString("origin"),r.getString("unit_id"),KnowledgeDomain.valueOf(r.getString("domain")),r.getString("active_version")),id));
     }
 
-    private Version version(String id) { return one(db.query("SELECT * FROM knowledge_document_version WHERE id=?",this::readVersion,id)); }
+    private Version version(String id) { return version(id,false); }
+    private Version version(String id, boolean lock) {
+        return one(db.query("SELECT * FROM knowledge_document_version WHERE id=?" + (lock?" FOR UPDATE":""),this::readVersion,id));
+    }
     private Version readVersion(java.sql.ResultSet rs, int index) throws java.sql.SQLException {
         return new Version(rs.getString("id"),rs.getString("document_id"),State.valueOf(rs.getString("status")),
                 rs.getString("title"),rs.getString("software_version"),rs.getString("content_hash"),
+                Ingest.valueOf(rs.getString("ingest_kind")),
                 rs.getObject("created_at",LocalDateTime.class));
     }
     private static String optional(String value) { return value==null || value.isBlank() ? null : value.strip(); }

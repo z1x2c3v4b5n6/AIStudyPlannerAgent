@@ -204,7 +204,7 @@ function decide(action: string) {
               <template v-if="item.softwareVersion"> · {{ item.softwareVersion }}</template></p>
             <pre>{{ item.excerpt }}</pre>
             <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.source || '官方来源' }}</a>
-            <p class="muted">采集于 {{ item.collectedAt }} · 匹配 {{ item.matchedTerms.join('、') }}</p>
+            <p class="muted">{{ item.ingestKind==='MANUAL_REVIEW'?'人工登记':'采集或导入' }}于 {{ item.collectedAt }} · 匹配 {{ item.matchedTerms.join('、') }}</p>
             <el-button v-if="item.scope==='PUBLIC'" @click="feedback=item">反馈这条证据</el-button>
           </article>
           <article v-for="row in result.structured" :key="row.unit.id" class="entry">

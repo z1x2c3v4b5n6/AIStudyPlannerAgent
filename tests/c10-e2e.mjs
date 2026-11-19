@@ -41,7 +41,12 @@ export async function verifyKnowledgeHub({ a, b, account, request, page, fronten
   await request(b, hub+'/versions/'+old.id, 'GET',undefined,404)
   await decision(b,old,'APPROVE',403)
   await decision(a,old,'PUBLISH',409)
-  await decision(a,old,'APPROVE')
+  const approvals=await Promise.allSettled([
+    decision(a,old,'APPROVE'),decision(a,old,'APPROVE'),
+  ])
+  assert.equal(approvals.filter(row=>row.status==='fulfilled').length,1)
+  const deniedApproval=approvals.find(row=>row.status==='rejected')
+  assert.match(String(deniedApproval.reason),/40930/)
   assert.equal((await search(b,key)).published.length,0)
   await decision(a,old,'PUBLISH')
   const first = (await search(b,key)).published[0]
@@ -49,7 +54,28 @@ export async function verifyKnowledgeHub({ a, b, account, request, page, fronten
   assert.equal(first.url,source.url)
   assert.equal(first.ordinal,1)
   assert.equal(first.line,1)
+  assert.equal(first.ingestKind,'MANUAL_REVIEW')
   assert.equal((await search(b,key,'PUBLIC','4.0')).published.length,0)
+  const cases=[
+    {name:'public citation',query:key,scope:'PUBLIC',version:'3.5',expected:old.id},
+    {name:'other software version',query:key,scope:'PUBLIC',version:'4.0'},
+    {name:'different topic',query:'offtopic'+suffix,scope:'PUBLIC'},
+    {name:'scope excludes public',query:key,scope:'PRIVATE'},
+  ]
+  const measured=[]
+  for(const item of cases){
+    const started=performance.now()
+    const found=(await search(b,item.query,item.scope,item.version)).published
+    const actual=found[0]?.versionId
+    assert.equal(actual,item.expected,item.name)
+    measured.push({case:item.name,expectedCitation:!!item.expected,correct:actual===item.expected,
+      count:found.length,ms:Number((performance.now()-started).toFixed(1))})
+  }
+  const timings=measured.map(item=>item.ms).sort((left,right)=>left-right)
+  console.log(JSON.stringify({dataset:'c10-evidence-smoke-v1',cases:measured,
+    expectedTopCitation:1,correctTopCitation:1,negativeCases:3,falseReturns:0,
+    latencyMs:{p50:timings[1],p95:timings[3]}}))
+
   report.push('C-10 publication: verified roles, unpublished exclusion, cited version and exact version filter')
 
   const vote = (actor, status=200) => request(actor,hub+'/versions/'+old.id+'/feedback','POST',{

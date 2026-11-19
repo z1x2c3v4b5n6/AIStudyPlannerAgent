@@ -21,12 +21,12 @@ public class KnowledgeHubSearch {
     record Query(@NotBlank @Size(max=300) String query, KnowledgeDomain domain, @Size(max=80) String softwareVersion,
                  @Pattern(regexp="[0-9a-f-]{36}") String sourceId, LocalDate collectedAfter, Scope scope, boolean online) {}
     public record Evidence(String scope, String versionId, int ordinal, String title, String heading, int line,
-                           String excerpt, String source, String url, String softwareVersion, String unitId,
+                           String excerpt, String source, String url, String softwareVersion, String unitId, String ingestKind,
                            LocalDateTime collectedAt, List<String> matchedTerms, int score) {}
     record Result(List<KnowledgeSearchResult> structured, List<Evidence> published, List<Evidence> online,
                   OnlineStatus onlineStatus, String trigger) {}
     private record Stored(String scope, String versionId, int ordinal, String title, String heading, int line,
-                          String excerpt,String source,String url,String softwareVersion,String unitId,LocalDateTime collectedAt) {}
+                          String excerpt,String source,String url,String softwareVersion,String unitId,String ingestKind,LocalDateTime collectedAt) {}
 
     private final JdbcTemplate db;
     private final AuthSessionService auth;
@@ -79,7 +79,7 @@ public class KnowledgeHubSearch {
                 successful++;
                 for(var chunk:EvidenceText.split(page.title(),page.text())) {
                     var row=new Stored("ONLINE",null,chunk.ordinal(),page.title(),chunk.heading(),chunk.line(),
-                            chunk.excerpt(),source.name(),source.url(),source.softwareVersion(),null,LocalDateTime.now(clock));
+                            chunk.excerpt(),source.name(),source.url(),source.softwareVersion(),null,"OFFICIAL_FETCH",LocalDateTime.now(clock));
                     score(row,EvidenceText.terms(query.query())).ifPresent(evidence::add);
                 }
             } catch (BusinessException unavailable) {
@@ -95,7 +95,7 @@ public class KnowledgeHubSearch {
         if(terms.isEmpty()) return List.of();
         var sql=new StringBuilder("""
                 SELECT CASE WHEN d.owner_id IS NULL THEN 'PUBLIC' ELSE 'PRIVATE' END visibility,
-                       v.id,c.ordinal,v.title,c.heading,c.start_line,c.excerpt,s.name,d.origin,v.software_version,d.unit_id,v.created_at
+                       v.id,c.ordinal,v.title,c.heading,c.start_line,c.excerpt,s.name,d.origin,v.software_version,d.unit_id,v.ingest_kind,v.created_at
                 FROM knowledge_document d JOIN knowledge_document_version v ON v.id=d.active_version AND v.document_id=d.id
                 JOIN knowledge_chunk c ON c.version_id=v.id LEFT JOIN knowledge_source s ON s.id=d.source_id
                 WHERE v.status='PUBLISHED' AND
@@ -119,8 +119,8 @@ public class KnowledgeHubSearch {
         }
         sql.append(") ORDER BY v.created_at DESC, v.id, c.ordinal LIMIT 240");
         var rows=db.query(sql.toString(),(r,n)->new Stored(r.getString(1),r.getString(2),r.getInt(3),r.getString(4),
-                r.getString(5),r.getInt(6),r.getString(7),r.getString(8),r.getString(9),r.getString(10),r.getString(11),
-                r.getObject(12,LocalDateTime.class)),args.toArray());
+                r.getString(5),r.getInt(6),r.getString(7),r.getString(8),r.getString(9),r.getString(10),r.getString(11),r.getString(12),
+                r.getObject(13,LocalDateTime.class)),args.toArray());
         return sorted(rows.stream().flatMap(row->score(row,terms).stream()).toList(),8);
     }
 
@@ -140,7 +140,7 @@ public class KnowledgeHubSearch {
             if(points>0) { matches.add(term); score+=points; }
         }
         return score==0?Optional.empty():Optional.of(new Evidence(row.scope(),row.versionId(),row.ordinal(),row.title(),
-                row.heading(),row.line(),row.excerpt(),row.source(),row.url(),row.softwareVersion(),row.unitId(),
+                row.heading(),row.line(),row.excerpt(),row.source(),row.url(),row.softwareVersion(),row.unitId(),row.ingestKind(),
                 row.collectedAt(),List.copyOf(matches),score));
     }
 }

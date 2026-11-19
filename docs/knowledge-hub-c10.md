@@ -8,7 +8,7 @@ C-10 增加文档证据层。原有 Java Backend 和 AI Application 知识包、
 | --- | --- |
 | `knowledge_source` | 审核人员登记受支持的官方 HTTPS 入口，保存领域、软件版本和最近采集状态 |
 | `knowledge_document` | 以公共或账号所有权隔离资料，保存原始链接、稳定的可选 KnowledgeUnit ID 和当前版本 |
-| `knowledge_document_version` | 保存正文、软件版本、采集时间、内容 SHA-256 和生命周期 |
+| `knowledge_document_version` | 保存正文、软件版本、采集时间、导入方式、内容 SHA-256 和生命周期 |
 | `knowledge_chunk` | 保存按标题切分的文本、顺序和清洗后正文起始行 |
 | `knowledge_publication` | 记录审批、拒绝、发布、归档和回滚的操作者、版本、哈希及理由 |
 | `knowledge_feedback` | 记录对公开已发布证据的分类反馈，同一账号对同一版本最多一次 |
@@ -51,11 +51,11 @@ C-10 增加文档证据层。原有 Java Backend 和 AI Application 知识包、
 
 运行 `mvn -f backend/pom.xml clean test` 和 `mvn -f backend/pom.xml package -DskipTests`，再运行 `npm --prefix frontend run test:progress` 与 `npm --prefix frontend run build`。使用 C-8 文档中的隔离 MySQL、Redis、Node 和 Playwright 环境，执行 `node tests/c8-e2e.mjs`。C-10 用例代码位于 `tests/c10-e2e.mjs`，覆盖原有知识、本地回退、发布前不可见、分类反馈聚合、官方样例差异、历史版本回滚、双账号私有隔离和浏览器检索。用例使用固定技术文本和隔离数据库生成的测试数据。CI 的模型 HTTP 仍使用 fixture。
 
-对真实联网做独立联调时，可授权测试账号并开启在线开关，在「来源与审核」登记允许采集的官方页面，先检查候选来源，再从检索页选择在线检查。请验证实际时间、URL、软件版本与引用片段，并确认在线证据没有成为正式版本。真实模型需已有的 DeepSeek 服务配置，以及单独开启提取开关。
+采集器探针可通过 `KNOWLEDGE_LIVE_CHECK=true mvn -f backend/pom.xml -Dtest=KnowledgeLiveSourceTest test` 显式运行。受控出网环境可通过 JVM HTTPS 代理和其受信证书配置运行探针。对真实联网做独立联调时，可授权测试账号并开启在线开关，在「来源与审核」登记允许采集的官方页面，先检查候选来源，再从检索页选择在线检查。请验证实际时间、URL、软件版本与引用片段，并确认在线证据没有成为正式版本。真实模型需已有的 DeepSeek 服务配置，以及单独开启提取开关。
 
 ## 已知范围
 
 - 个人资料支持 UTF-8 Markdown 和 TXT，暂无 PDF、独立重建索引按钮或个人版本编辑。
 - 官方站点搜索通过登记入口完成，暂无付费搜索提供商、复用在线结果缓存或 HTTP 条件请求。来源按统一配置周期复查，反馈聚合由审核人处理。
 - 已发布证据和在线候选会带引用返回，暂无基于两路证据的通用生成答案，也未将文档正文加入现有学习路径 Prompt。
-- 当前排序扫描匹配候选并限定返回数量，暂未做大规模语料压测或真实在线检索与真实 DeepSeek 的效果评估。新增测试验证权限、阶段切换和引用，不代表开放域评估结果。
+- 当前排序扫描匹配候选并限定返回数量，暂未做大规模语料压测或真实在线检索与真实 DeepSeek 的效果评估。E2E 输出 `c10-evidence-smoke-v1`，逐条记录样例引用命中、三条负例的误返回和同机 HTTP 延迟，样本量仅用于回归。仍缺独立的生成质量评估集。

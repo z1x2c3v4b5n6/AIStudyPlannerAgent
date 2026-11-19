@@ -11,6 +11,7 @@ export interface Version {
   title: string
   softwareVersion?: string
   hash: string
+  ingestKind: string
   createdAt: string
 }
 export interface Source {
@@ -30,6 +31,7 @@ export interface Evidence extends Chunk {
   source?: string
   url?: string
   softwareVersion?: string
+  ingestKind: string
   collectedAt: string
   matchedTerms: string[]
 }
