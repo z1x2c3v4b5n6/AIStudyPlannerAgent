@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { setTimeout } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
+import { verifyKnowledgeHub } from './c10-e2e.mjs'
 
 const database = process.env.DB_URL ?? ''
 assert.match(database, /^jdbc:mysql:\/\/(127\.0\.0\.1|localhost):\d+\/[a-zA-Z0-9_]+_test(?:\?|$)/,
@@ -104,6 +105,9 @@ const backendEnv = {
   DEEPSEEK_BASE_URL: `http://127.0.0.1:${fixturePort}`,
   DEEPSEEK_COMPLETIONS_PATH: '/chat/completions',
   APP_CORS_ALLOWED_ORIGIN: frontend,
+  APP_KNOWLEDGE_ONLINE_ENABLED: 'false',
+  APP_KNOWLEDGE_EXTRACTION_ENABLED: 'false',
+  APP_KNOWLEDGE_FEEDBACK_THRESHOLD: '3',
 }
 function launchBackend() {
   return spawn(java, ['-jar', 'backend/target/ai-study-planner-agent-0.0.1-SNAPSHOT.jar'], {
@@ -155,6 +159,7 @@ try {
   await ready(frontend)
   const a = await account()
   const b = await account()
+  backendEnv.APP_KNOWLEDGE_REVIEWERS = String(a.credentials.user.id)
   const subject = await request(a, '/subjects', 'POST', { name: 'Spring Boot', color: '#2a7f62', sortOrder: 0 })
   await request(a, '/goals', 'POST', { subjectId: subject.id, title: '复习自动配置', targetMinutes: 120, status: 'ACTIVE' })
   const task = await request(a, '/tasks', 'POST', {
@@ -417,10 +422,11 @@ try {
   await page.getByRole('tab', {name: '复习建议'}).click()
   await page.getByText(candidate.topic, {exact: true}).waitFor()
   report.push('C-9 Chromium: authenticated learning insights and actual review data')
+  await verifyKnowledgeHub({a,b,account,request,page,frontend,report})
   assert.deepEqual(pageErrors, [])
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
 } finally {
-  console.log(JSON.stringify({ dataset: 'c8-c9-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
+  console.log(JSON.stringify({ dataset: 'c8-c10-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
     passedChecks: report.length, report, providerTrace, billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()
