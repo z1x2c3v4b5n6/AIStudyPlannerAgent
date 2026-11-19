@@ -341,3 +341,7 @@ GitHub Actions 在 push 到 `main` 和针对 `main` 的 Pull Request 上并行�
 独立的本地CPU实验对比C-4关键词、多语言MiniLM语义检索和可配置RRF混合检索。固定原30条案例，新增8条dev和20条final，记录Top-3/Top-8质量、误召回、退化和延迟。final正例的Hybrid Hit@3从0.5625升至0.6875，负例返回率从0升至0.5，因此继续以C-4作为默认检索实现。
 
 部署及复现见 [实验说明](experiments/retrieval/README.md)，全部指标和失败分析见 [C-5评估报告](docs/rag-retrieval-c5.md)。
+
+### C-6 Learning Path 生成质量评估
+
+生成质量评估通过真实生成服务回放 Baseline、C-4 RAG 与人工 Oracle。默认运行固定响应，输出结构合法率、业务通过率、主题覆盖、前置关系、空上下文通过率和逐案诊断。在 `backend` 中运行 `mvn -Dtest=GenerationEvaluationTest,GenerationRubricTest test`。评估规则、回放结果及可选 DeepSeek 运行方法见 [C-6 生成质量评估](docs/rag-generation-c6.md)。

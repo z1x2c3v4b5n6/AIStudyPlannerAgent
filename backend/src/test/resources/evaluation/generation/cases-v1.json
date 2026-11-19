@@ -1,0 +1,257 @@
+[
+  {
+    "id": "java-collections",
+    "scenario": "java-beginner",
+    "requirement": "学习Java Collection接口和ArrayList实现，先接口后实现",
+    "currentLevel": "初学者",
+    "targetLevel": "能独立解释集合选型",
+    "oracleIds": [
+      "java-collection-overview",
+      "java-arraylist"
+    ],
+    "requiredTopics": [
+      [
+        "Collection",
+        "集合接口"
+      ],
+      [
+        "ArrayList",
+        "动态数组"
+      ]
+    ],
+    "prerequisites": [
+      [
+        0,
+        1
+      ]
+    ],
+    "forbidden": [
+      "ArrayList底层是链表"
+    ],
+    "noise": null,
+    "manualFacts": [
+      "Collection 是集合接口层的抽象；ArrayList 通过可扩容数组存储元素。"
+    ]
+  },
+  {
+    "id": "java-threads",
+    "scenario": "java-intermediate",
+    "requirement": "复习线程池与拒绝策略，先线程池原理再验证拒绝策略",
+    "currentLevel": "能写基本并发代码",
+    "targetLevel": "能排查线程池饱和",
+    "oracleIds": [
+      "java-thread-pool"
+    ],
+    "requiredTopics": [
+      [
+        "线程池",
+        "ThreadPoolExecutor"
+      ],
+      [
+        "拒绝策略",
+        "RejectedExecutionHandler"
+      ]
+    ],
+    "prerequisites": [
+      [
+        0,
+        1
+      ]
+    ],
+    "forbidden": [
+      "队列永远不会满"
+    ],
+    "noise": null,
+    "manualFacts": [
+      "线程池饱和时的行为取决于队列状态和拒绝策略；对比 AbortPolicy 与 CallerRunsPolicy。"
+    ]
+  },
+  {
+    "id": "ai-vectors",
+    "scenario": "ai-beginner",
+    "requirement": "先理解 embedding，再学习向量检索，在本地验证相似结果",
+    "currentLevel": "初学者",
+    "targetLevel": "会解释两个步骤",
+    "oracleIds": [
+      "rag-embedding",
+      "rag-vector-retrieval"
+    ],
+    "requiredTopics": [
+      [
+        "Embedding",
+        "向量嵌入"
+      ],
+      [
+        "向量检索",
+        "Vector Retrieval"
+      ]
+    ],
+    "prerequisites": [
+      [
+        0,
+        1
+      ]
+    ],
+    "forbidden": [
+      "相似度等于正确性"
+    ],
+    "noise": null,
+    "manualFacts": [
+      "Embedding 将输入转换成向量；向量检索比较相似性，仍需核对相关性和正确性。"
+    ]
+  },
+  {
+    "id": "cross-app",
+    "scenario": "cross-domain",
+    "requirement": "把 Spring Boot 小项目接上模型 function calling，同时理解两者各自职责",
+    "currentLevel": "会Java基础",
+    "targetLevel": "能说明端到端调用边界",
+    "oracleIds": [
+      "spring-boot",
+      "ai-tool-function-calling"
+    ],
+    "requiredTopics": [
+      [
+        "Spring Boot"
+      ],
+      [
+        "Function Calling",
+        "工具调用"
+      ]
+    ],
+    "prerequisites": [],
+    "forbidden": [
+      "让模型直接写库"
+    ],
+    "noise": null,
+    "manualFacts": [
+      "Spring Boot 承载应用；后端校验并执行允许的工具调用，模型仅提出请求。"
+    ]
+  },
+  {
+    "id": "ai-empty",
+    "scenario": "natural-language-empty",
+    "requirement": "我想知道怎样把函数交给回答我的程序自行决定何时请它帮忙",
+    "currentLevel": "零基础",
+    "targetLevel": "看懂这个流程",
+    "oracleIds": [
+      "ai-tool-function-calling"
+    ],
+    "requiredTopics": [
+      [
+        "Function Calling",
+        "工具调用"
+      ]
+    ],
+    "prerequisites": [],
+    "forbidden": [
+      "跳过权限校验"
+    ],
+    "noise": null,
+    "manualFacts": [
+      "定义函数参数结构，解析模型的工具调用请求，授权后由应用执行并返回结果。"
+    ]
+  },
+  {
+    "id": "java-conflict",
+    "scenario": "conflicting-context",
+    "requirement": "复习 synchronized 与 volatile，理解可见性和复合操作原子性的差别",
+    "currentLevel": "中级",
+    "targetLevel": "能辨别错误并发结论",
+    "oracleIds": [
+      "java-synchronized",
+      "java-volatile"
+    ],
+    "requiredTopics": [
+      [
+        "synchronized",
+        "同步锁"
+      ],
+      [
+        "volatile"
+      ]
+    ],
+    "prerequisites": [],
+    "forbidden": [
+      "volatile保证复合操作原子性"
+    ],
+    "noise": {
+      "topic": "volatile",
+      "keyPoint": "volatile保证复合操作原子性"
+    },
+    "manualFacts": [
+      "volatile 提供可见性；复合操作如自增不因 volatile 而获得原子性。synchronized 提供互斥。"
+    ]
+  },
+  {
+    "id": "ai-noise",
+    "scenario": "irrelevant-context",
+    "requirement": "学习 RAG rerank，比较首轮召回与重排序",
+    "currentLevel": "知道RAG概念",
+    "targetLevel": "能解释为什么需要重排",
+    "oracleIds": [
+      "rag-vector-retrieval",
+      "rag-rerank"
+    ],
+    "requiredTopics": [
+      [
+        "向量检索",
+        "Vector Retrieval"
+      ],
+      [
+        "Rerank",
+        "重排序"
+      ]
+    ],
+    "prerequisites": [
+      [
+        0,
+        1
+      ]
+    ],
+    "forbidden": [
+      "用 GC 作为重排算法"
+    ],
+    "noise": {
+      "topic": "GC Roots",
+      "keyPoint": "理解可达性分析与垃圾收集"
+    },
+    "manualFacts": [
+      "先检索候选，再根据查询与候选的相关性重排。"
+    ]
+  },
+  {
+    "id": "external-topic",
+    "scenario": "knowledge-gap",
+    "requirement": "从零学习 Kafka consumer group 和 offset 提交",
+    "currentLevel": "初学者",
+    "targetLevel": "能验证消费组再平衡",
+    "oracleIds": [],
+    "requiredTopics": [
+      [
+        "Consumer Group",
+        "消费组"
+      ],
+      [
+        "Offset",
+        "偏移量"
+      ]
+    ],
+    "prerequisites": [
+      [
+        0,
+        1
+      ]
+    ],
+    "forbidden": [
+      "各分区使用全局统一offset"
+    ],
+    "noise": {
+      "topic": "Kafka consumer group",
+      "keyPoint": "消费组内分区分派给消费者；每组按分区跟踪offset提交。"
+    },
+    "manualFacts": [
+      "消费组内分派分区；每个消费组按分区跟踪提交位点。"
+    ]
+  }
+]

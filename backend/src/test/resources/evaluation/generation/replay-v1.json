@@ -1,0 +1,1185 @@
+{
+  "java-collections": {
+    "BASELINE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "ArrayList",
+                "learningObjective": "解释ArrayList的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示ArrayList的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释ArrayList的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Collection",
+                "learningObjective": "解释Collection的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Collection的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Collection的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "ArrayList",
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 3,
+                "topic": "ArrayList",
+                "learningObjective": "解释ArrayList的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示ArrayList的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释ArrayList的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 3,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "ArrayList",
+                "learningObjective": "解释ArrayList的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示ArrayList的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释ArrayList的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Collection",
+                "learningObjective": "解释Collection的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Collection的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Collection的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "ArrayList",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Collection",
+                "learningObjective": "解释Collection的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Collection的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Collection的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "ArrayList",
+                "learningObjective": "解释ArrayList的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示ArrayList的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释ArrayList的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "Collection",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Collection",
+                "learningObjective": "解释Collection的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Collection的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Collection的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "ArrayList",
+                "learningObjective": "解释ArrayList的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示ArrayList的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释ArrayList的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "Collection",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "java-threads": {
+    "BASELINE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "线程池",
+                "learningObjective": "解释线程池的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示线程池的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释线程池的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "线程安全",
+                "learningObjective": "解释线程安全的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示线程安全的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释线程安全的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "线程池",
+                "learningObjective": "解释线程池的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示线程池的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释线程池的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "线程池",
+                "learningObjective": "解释线程池的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示线程池的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释线程池的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "拒绝策略",
+                "learningObjective": "解释拒绝策略的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示拒绝策略的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释拒绝策略的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "线程池",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "ai-vectors": {
+    "BASELINE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "向量检索",
+                "learningObjective": "解释向量检索的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示向量检索的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释向量检索的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Embedding",
+                "learningObjective": "解释Embedding的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Embedding的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Embedding的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "向量检索",
+                "learningObjective": "解释向量检索的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示向量检索的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释向量检索的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "Embedding",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Embedding",
+                "learningObjective": "解释Embedding的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Embedding的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Embedding的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "向量检索",
+                "learningObjective": "解释向量检索的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示向量检索的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释向量检索的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "Embedding",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cross-app": {
+    "BASELINE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Spring Boot",
+                "learningObjective": "解释Spring Boot的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Spring Boot的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Spring Boot的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Spring Boot",
+                "learningObjective": "解释Spring Boot的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Spring Boot的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Spring Boot的结果"
+                ],
+                "estimatedMinutes": 90,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Function Calling",
+                "learningObjective": "解释Function Calling的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Function Calling的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Function Calling的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Spring Boot",
+                "learningObjective": "解释Spring Boot的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Spring Boot的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Spring Boot的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Function Calling",
+                "learningObjective": "解释Function Calling的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Function Calling的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Function Calling的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Spring Boot",
+                "learningObjective": "解释Spring Boot的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Spring Boot的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Spring Boot的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Function Calling",
+                "learningObjective": "解释Function Calling的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Function Calling的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Function Calling的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "ai-empty": {
+    "BASELINE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "工具调用",
+                "learningObjective": "解释工具调用的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示工具调用的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释工具调用的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "工具调用",
+                "learningObjective": "解释工具调用的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示工具调用的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释工具调用的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Function Calling",
+                "learningObjective": "解释Function Calling的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Function Calling的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Function Calling的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "java-conflict": {
+    "BASELINE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "synchronized",
+                "learningObjective": "解释synchronized的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示synchronized的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释synchronized的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "volatile",
+                "learningObjective": "解释volatile的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示volatile的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释volatile的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "synchronized",
+                "learningObjective": "解释synchronized的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示synchronized的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释synchronized的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "volatile",
+                "learningObjective": "解释volatile的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示volatile的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释volatile的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "synchronized",
+                "learningObjective": "解释synchronized的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示synchronized的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释synchronized的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "volatile",
+                "learningObjective": "解释volatile的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示volatile的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释volatile的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "STRESS": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "synchronized",
+                "learningObjective": "解释synchronized的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示synchronized的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释synchronized的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "volatile保证复合操作原子性",
+                "learningObjective": "解释volatile保证复合操作原子性的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示volatile保证复合操作原子性的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释volatile保证复合操作原子性的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "ai-noise": {
+    "BASELINE": [
+      "not JSON",
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Rerank",
+                "learningObjective": "解释Rerank的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Rerank的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Rerank的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "向量检索",
+                "learningObjective": "解释向量检索的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示向量检索的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释向量检索的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Rerank",
+                "learningObjective": "解释Rerank的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Rerank的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Rerank的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "向量检索",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "向量检索",
+                "learningObjective": "解释向量检索的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示向量检索的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释向量检索的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Rerank",
+                "learningObjective": "解释Rerank的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Rerank的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Rerank的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "向量检索",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "STRESS": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "向量检索",
+                "learningObjective": "解释向量检索的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示向量检索的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释向量检索的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Rerank",
+                "learningObjective": "解释Rerank的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Rerank的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Rerank的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "向量检索",
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 3,
+                "topic": "GC Roots",
+                "learningObjective": "解释GC Roots的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示GC Roots的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释GC Roots的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 3,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "external-topic": {
+    "BASELINE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Kafka基础",
+                "learningObjective": "解释Kafka基础的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Kafka基础的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Kafka基础的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "RAG": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Consumer Group",
+                "learningObjective": "解释Consumer Group的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Consumer Group的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Consumer Group的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Offset",
+                "learningObjective": "解释Offset的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Offset的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Offset的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "Consumer Group",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ORACLE": [
+      {
+        "title": "核心知识学习路径",
+        "summary": "通过小例子验证核心概念。",
+        "stages": [
+          {
+            "stageNo": 1,
+            "title": "核心知识与实践",
+            "description": "按主题练习。",
+            "items": [
+              {
+                "sequenceNo": 1,
+                "topic": "Consumer Group",
+                "learningObjective": "解释Consumer Group的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Consumer Group的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Consumer Group的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 1,
+                "prerequisite": null,
+                "reason": "对应本次学习目标"
+              },
+              {
+                "sequenceNo": 2,
+                "topic": "Offset",
+                "learningObjective": "解释Offset的行为并验证一个具体例子",
+                "learningMethod": [
+                  "编写一个演示Offset的最小示例"
+                ],
+                "completionCriteria": [
+                  "能运行示例并解释Offset的结果"
+                ],
+                "estimatedMinutes": 30,
+                "suggestedDay": 2,
+                "prerequisite": "Consumer Group",
+                "reason": "对应本次学习目标"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
