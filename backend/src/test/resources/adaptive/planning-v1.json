@@ -2,10 +2,10 @@
   "version": "c9-planning-v1",
   "cases": [
     {"id":"dev-empty","split":"development","days":1,"budget":30,"tasks":[]},
-    {"id":"dev-oversized","split":"development","days":1,"budget":30,"tasks":[{"id":1,"subject":1,"priority":5,"minutes":90,"day":0}]},
-    {"id":"final-competing-subjects","split":"final","days":2,"budget":60,"tasks":[{"id":1,"subject":1,"priority":5,"minutes":60,"day":1},{"id":2,"subject":2,"priority":4,"minutes":60,"day":0}]},
-    {"id":"final-occupied-and-locked","split":"final","days":2,"budget":60,"occupied":30,"lockedStart":60,"tasks":[{"id":1,"subject":1,"priority":5,"minutes":45,"day":0},{"id":2,"subject":2,"priority":4,"minutes":30,"day":0}]},
-    {"id":"final-overdue-and-blocked","split":"final","days":3,"budget":30,"tasks":[{"id":1,"subject":1,"priority":4,"minutes":30,"day":0,"dueOffset":-2880},{"id":2,"subject":2,"priority":5,"minutes":30,"day":0,"dueOffset":15},{"id":3,"subject":1,"priority":5,"minutes":30,"day":0,"requires":1}]},
-    {"id":"final-overlong-priority","split":"final","days":2,"budget":30,"tasks":[{"id":1,"subject":2,"priority":5,"minutes":90,"day":0},{"id":2,"subject":2,"priority":2,"minutes":30,"day":0},{"id":3,"subject":1,"priority":4,"minutes":30,"day":1}]}
+    {"id":"dev-oversized","split":"development","days":1,"budget":30,"tasks":[{"id":1,"subject":1,"priority":4,"minutes":90,"day":0}]},
+    {"id":"final-competing-subjects","split":"final","days":2,"budget":60,"tasks":[{"id":1,"subject":1,"priority":4,"minutes":60,"day":1},{"id":2,"subject":2,"priority":3,"minutes":60,"day":0}]},
+    {"id":"final-occupied-and-locked","split":"final","days":2,"budget":60,"occupied":30,"lockedStart":60,"tasks":[{"id":1,"subject":1,"priority":4,"minutes":45,"day":0},{"id":2,"subject":2,"priority":3,"minutes":30,"day":0}]},
+    {"id":"final-overdue-and-blocked","split":"final","days":3,"budget":30,"tasks":[{"id":1,"subject":1,"priority":3,"minutes":30,"day":0,"dueOffset":-2880},{"id":2,"subject":2,"priority":4,"minutes":30,"day":0,"dueOffset":15},{"id":3,"subject":1,"priority":4,"minutes":30,"day":0,"requires":1}]},
+    {"id":"final-overlong-priority","split":"final","days":2,"budget":30,"tasks":[{"id":1,"subject":2,"priority":4,"minutes":90,"day":0},{"id":2,"subject":2,"priority":2,"minutes":30,"day":0},{"id":3,"subject":1,"priority":3,"minutes":30,"day":1}]}
   ]
 }

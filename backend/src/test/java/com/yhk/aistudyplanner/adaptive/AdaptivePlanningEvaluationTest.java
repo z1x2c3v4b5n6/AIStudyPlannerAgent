@@ -107,7 +107,7 @@ class AdaptivePlanningEvaluationTest {
             usage.merge(row.start().toLocalDate(), duration, Long::sum);
             omitted.remove(row.task());
         }
-        return new Result(placed.size(), full, (int) omitted.stream().filter(task -> task.priority() >= 4).count(),
+        return new Result(placed.size(), full, (int) omitted.stream().filter(task -> task.priority() >= 3).count(),
                 conflicts, (int) usage.values().stream().filter(count -> count > fixture.budget()).count(),
                 moved, omitted.stream().map(AdaptivePlanner.Task::id).toList());
     }

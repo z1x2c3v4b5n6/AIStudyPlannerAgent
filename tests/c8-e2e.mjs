@@ -46,6 +46,9 @@ function modelFixture(request) {
     } else if (change) {
       name = 'open_tasks'
       args = { title: 'Agent 实际创建的任务' }
+    } else if (content.includes('调取学习画像')) {
+      name = 'get_learning_profile'
+      args = {days: 14}
     } else if (content.includes('目标')) name = 'list_goals'
     else if (content.includes('统计')) name = 'study_statistics'
     message = { role: 'assistant', content: null, tool_calls: [
@@ -232,6 +235,9 @@ try {
       'POST', { confirm: true, digest: action.digest }, actor === a ? 200 : 404)
     assert.equal((await chat('学习目标')).messages.at(-1).tools[0].data.list[0].title, '复习自动配置')
     assert.equal((await chat('学习统计')).messages.at(-1).tools[0].data.totalMinutes, 30)
+    const profileTool = (await chat('调取学习画像')).messages.at(-1).tools[0]
+    assert.equal(profileTool.name, 'get_learning_profile')
+    assert.equal(profileTool.data.activity.totalMinutes, 30)
     const pending = (await chat('创建任务 subject=' + subject.id)).actions.at(-1)
     await decideAction(pending, b)
     const responses = await Promise.all([decideAction(pending), decideAction(pending)])
@@ -247,6 +253,11 @@ try {
     const reply = await request(a, base + '/messages', 'POST', { text: '请查询我的未完成任务，使用工具读取实际数据' })
     assert.ok(reply.messages.at(-1).tools.some(tool => tool.success && ['open_tasks', 'today_tasks'].includes(tool.name)))
     report.push('Live provider: task tool selection and actual tool response verified')
+    const profileReply = await request(a, base + '/messages', 'POST', {text:
+      '请调用 get_learning_profile 查询当前账户最近14天的学习画像，并根据工具结果总结。'})
+    assert.ok(profileReply.messages.at(-1).tools.some(tool =>
+      tool.name === 'get_learning_profile' && tool.success && tool.data?.activity?.totalMinutes === 30))
+    report.push('Live provider: C-9 profile tool selection, accepted arguments and actual tool result verified')
   }
 
   browser = await chromium.launch({ headless: true, executablePath: process.env.C8_CHROMIUM_PATH || undefined })
@@ -355,11 +366,6 @@ try {
   }
   assert.ok(events.includes('id:' + combined.revision))
   await reader.cancel()
-  const priorProcess = backend
-  priorProcess.kill()
-  await once(priorProcess, 'exit')
-  backend = launchBackend()
-  await ready(api + '/auth/me')
   const repeatState = await request(a, combinedUrl + '/auto-advance', 'POST')
   assert.equal(repeatState.revision, combined.revision)
   await request(a, combinedUrl + '/decision', 'POST', {
@@ -367,6 +373,44 @@ try {
   })
   assert.equal((await request(a, combinedUrl + '/auto-advance', 'POST')).status, 'CANCELLED')
   report.push('C-9 combined: clarify, stop at approval, SSE revision recovery, denial and safe cancel')
+
+  const runAdaptive = async text => {
+    const workflow = await start(text)
+    return request(a, '/agent/workflows/' + workflow.id + '/auto-advance', 'POST')
+  }
+  const diagnosisRun = await runAdaptive('分析我最近两周的学习情况，告诉我有哪些问题。')
+  assert.equal(diagnosisRun.status, 'SUCCEEDED')
+  assert.equal(readyStep(diagnosisRun, 'learningProfile').result.activity.totalMinutes, 30)
+  assert.equal(readyStep(diagnosisRun, 'diagnostics').result.length, 4)
+  const reviewRun = await runAdaptive('帮我找一下最近需要复习的内容。')
+  assert.equal(reviewRun.status, 'SUCCEEDED')
+  assert.ok(readyStep(reviewRun, 'reviewCandidates').result.some(row => row.reviewTaskId === review.taskIds[0]))
+  report.push('C-9 standalone diagnosis and review workflows read actual user data')
+
+  const complete = await runAdaptive('分析最近学习问题，安排下周计划，每天一小时，并给我复习建议')
+  assert.equal(complete.status, 'WAITING_APPROVAL')
+  const completionUrl = '/agent/workflows/' + complete.id
+  const approvalBody = {digest: readyStep(complete, 'adaptiveApproval').result.digest, strategy: 'MINIMAL', confirm: true}
+  const priorProcess = backend
+  priorProcess.kill()
+  await once(priorProcess, 'exit')
+  backend = launchBackend()
+  await ready(api + '/auth/me')
+  assert.equal((await request(a, completionUrl)).status, 'WAITING_APPROVAL')
+  await request(b, completionUrl + '/decision', 'POST', approvalBody, 404)
+  await request(a, completionUrl + '/decision', 'POST', approvalBody)
+  await Promise.all([
+    request(a, completionUrl + '/auto-advance', 'POST'),
+    request(a, completionUrl + '/auto-advance', 'POST'),
+  ])
+  const outcome = await request(a, completionUrl)
+  assert.equal(outcome.status, 'SUCCEEDED')
+  const write = readyStep(outcome, 'adaptiveApply')
+  assert.equal(write.attempts, 1)
+  assert.equal(write.result.status, 'EXECUTED')
+  assert.ok(write.result.planIds.length > 0)
+  for (const id of write.result.planIds) assert.ok((await request(a, '/plans/' + id)).items.length)
+  report.push('C-9 combined approved workflow: exactly-once apply and persisted plan IDs')
 
   await page.goto(frontend + '/adaptive')
   await page.getByRole('heading', {name: '学习洞察'}).waitFor()

@@ -39,7 +39,7 @@ Run `mvn -f backend/pom.xml -Dtest=AdaptivePlanningEvaluationTest test`. The eva
 | --- | ---: | ---: | ---: | ---: |
 | Assigned slots | 9 | 8 | 8 | 8 |
 | Full-duration slots | 7 | 8 | 8 | 8 |
-| High-priority tasks omitted | 0 | 2 | 2 | 2 |
+| Priority 3–4 tasks omitted | 0 | 2 | 2 | 2 |
 | Slots overlapping occupied or locked time | 1 | 0 | 0 | 0 |
 | Days exceeding capacity after existing work | 1 | 0 | 0 | 0 |
 | Scheduled tasks moved away from their initial date | 2 | 2 | 6 | 6 |
@@ -50,7 +50,7 @@ The overdue fixture rejects a task whose deadline leaves 15 minutes for 30 minut
 
 `node tests/c8-e2e.mjs` starts the actual packaged Spring Boot app and built Vue site over HTTP for the C-8 and C-9 scenarios. Use a disposable local MySQL 8.4 schema ending in `_test`, Redis 7, Node 22 and JDK 17. Build with `mvn -f backend/pom.xml package -DskipTests` and `npm --prefix frontend ci` followed by `npm --prefix frontend run build`. Install Playwright with `npm --prefix frontend install --no-save --package-lock=false playwright@1.58.2` and run `cd frontend && npx playwright install chromium` before returning to the repo root. Export `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, and `REDIS_PORT` for the isolated services. The CI job prepares the same dependencies without a real provider.
 
-Explicitly set `C8_LIVE_DEEPSEEK=true` and inject `DEEPSEEK_API_KEY` through the shell environment before running the same test outside CI. The runner proxies only to DeepSeek in that mode and reports returned model, temperature, token cap, token use when available, tool names, upstream status and latency. Credentials and prompt contents are excluded from reports. The paid mode requires an isolated test database and its own validation. CI substitutes only the provider HTTP protocol. The deterministic C-9 workflows themselves do not use a model.
+Explicitly set `C8_LIVE_DEEPSEEK=true` and inject `DEEPSEEK_API_KEY` through the shell environment before running the same test outside CI. The runner proxies only to DeepSeek in that mode and reports returned model, temperature, token cap, token use when available, tool names, upstream status and latency. Credentials and prompt contents are excluded from reports. The paid mode requires an isolated test database and its own validation. CI substitutes only the provider HTTP protocol. The optional live check also requires successful selection and execution of the C-9 profile tool against actual records. The deterministic C-9 workflows themselves do not use a model.
 
 ## Limits
 
