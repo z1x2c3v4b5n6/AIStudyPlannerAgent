@@ -274,10 +274,106 @@ try {
   await page.getByRole('button', { name: '拒绝', exact: true }).click()
   await page.locator('.workflow-panel header .el-tag').getByText('已取消', { exact: true }).waitFor()
   assert.equal((await request(a, '/tasks/' + task.id)).plannedDate, date(1))
+  const adaptiveTask = (title, plannedDate) => request(a, '/tasks', 'POST', {
+    subjectId: subject.id, title, priority: 4, estimatedMinutes: 30, plannedDate,
+  })
+  const profile = await request(a, '/adaptive/profile?days=14')
+  assert.equal(profile.activity.totalMinutes, 30)
+  assert.equal((await request(b, '/adaptive/profile?days=14')).activity.totalMinutes, 0)
+  assert.ok((await request(a, '/adaptive/diagnostics?days=14&dailyMinutes=60')).length >= 4)
+  report.push('C-9 profile and diagnostic rules: real record data and isolated empty account')
+
+  const adaptive = await adaptiveTask('C-9 多日安全测试', date(2))
+  const before = await request(a, '/plans')
+  const preview = await request(a, '/adaptive/plans/preview', 'POST', {start: date(2), days: 2, dailyMinutes: 60})
+  assert.equal(preview.data.schemes.length, 3)
+  assert.ok(preview.data.schemes.some(scheme => scheme.scheduled.some(item => item.task.id === adaptive.id)))
+  assert.deepEqual(await request(a, '/plans'), before)
+  const choice = {digest: preview.digest, strategy: 'BALANCED', confirm: true}
+  const planDecision = '/adaptive/plans/' + preview.id + '/decision'
+  await request(b, planDecision, 'POST', choice, 404)
+  const [first, repeated] = await Promise.all([request(a, planDecision, 'POST', choice), request(a, planDecision, 'POST', choice)])
+  assert.equal(first.status, 'EXECUTED')
+  assert.ok(first.planIds.length > 0)
+  assert.deepEqual(first.planIds, repeated.planIds)
+  const committedPlans = await Promise.all(first.planIds.map(id => request(a, '/plans/' + id)))
+  assert.ok(committedPlans.flatMap(plan => plan.items).some(row => row.taskId === adaptive.id))
+  const staleTask = await adaptiveTask('C-9 截止时间变化测试', date(4))
+  const stale = await request(a, '/adaptive/plans/preview', 'POST', {start: date(4), days: 1, dailyMinutes: 60})
+  assert.ok(stale.data.schemes.find(scheme => scheme.strategy === 'MINIMAL').scheduled.some(item => item.task.id === staleTask.id))
+  await request(a, '/tasks/' + staleTask.id, 'PUT', {
+    subjectId: subject.id, title: staleTask.title, priority: 4, estimatedMinutes: 30,
+    plannedDate: date(4), dueAt: date(4) + 'T18:00:00',
+  })
+  await request(a, '/adaptive/plans/' + stale.id + '/decision', 'POST',
+    {digest: stale.digest, strategy: 'MINIMAL', confirm: true}, 409)
+  report.push('C-9 planning: no pre-approval business write, owner check, concurrent durable replay')
+
+  const candidate = (await request(a, '/adaptive/reviews')).find(row => row.subjectId === subject.id)
+  assert.ok(candidate)
+  const feedback = {rating: 'UNFAMILIAR', dismissed: false}
+  await request(b, '/adaptive/reviews/' + candidate.itemId + '/feedback', 'PUT', feedback, 404)
+  await request(a, '/adaptive/reviews/' + candidate.itemId + '/feedback', 'PUT', feedback)
+  const reviewSelection = [{itemId: candidate.itemId, date: date(1), minutes: 20}]
+  const reviewPreview = await request(a, '/adaptive/reviews/preview', 'POST', reviewSelection)
+  const reviewDecision = '/adaptive/reviews/' + reviewPreview.id + '/decision'
+  const reviewChoice = {digest: reviewPreview.digest, confirm: true}
+  await request(b, reviewDecision, 'POST', reviewChoice, 404)
+  const review = await request(a, reviewDecision, 'POST', reviewChoice)
+  assert.equal((await request(a, '/tasks/' + review.taskIds[0])).title, '复习：' + candidate.topic)
+  assert.deepEqual((await request(a, reviewDecision, 'POST', reviewChoice)).taskIds, review.taskIds)
+  await request(a, '/adaptive/reviews/preview', 'POST', reviewSelection, 409)
+  report.push('C-9 review: owned feedback, explicit confirmation, actual task, duplicate cycle rejected')
+
+  await adaptiveTask('C-9 工作流待安排任务', date())
+  let combined = await start('分析我最近两周的学习问题，安排下周计划并给我复习建议')
+  const combinedUrl = '/agent/workflows/' + combined.id
+  combined = await request(a, combinedUrl + '/auto-advance', 'POST')
+  assert.equal(combined.status, 'WAITING_INPUT')
+  await request(b, combinedUrl + '/clarification', 'POST', {dailyMinutes: 60}, 404)
+  await request(a, combinedUrl + '/clarification', 'POST', {dailyMinutes: 60, subjectId: subject.id})
+  combined = await request(a, combinedUrl + '/auto-advance', 'POST')
+  assert.equal(combined.status, 'WAITING_APPROVAL')
+  assert.equal(readyStep(combined, 'reviewCandidates').status, 'DONE')
+  assert.equal(readyStep(combined, 'diagnostics').status, 'DONE')
+  const eventOptions = actor => ({headers: {[actor.credentials.tokenName]: actor.credentials.tokenValue,
+    accept: 'text/event-stream, application/json'}, signal: AbortSignal.timeout(18000)})
+  const denied = await fetch(api + combinedUrl + '/events', eventOptions(b))
+  assert.equal(denied.status, 404)
+  const eventResponse = await fetch(api + combinedUrl + '/events?after=' + (combined.revision - 1), eventOptions(a))
+  assert.equal(eventResponse.status, 200)
+  assert.match(eventResponse.headers.get('content-type'), /^text\/event-stream/)
+  const reader = eventResponse.body.getReader()
+  let events = ''
+  while (!events.includes('data:')) {
+    const {done, value} = await reader.read()
+    if (done) break
+    events += new TextDecoder().decode(value)
+  }
+  assert.ok(events.includes('id:' + combined.revision))
+  await reader.cancel()
+  const priorProcess = backend
+  priorProcess.kill()
+  await once(priorProcess, 'exit')
+  backend = launchBackend()
+  await ready(api + '/auth/me')
+  const repeatState = await request(a, combinedUrl + '/auto-advance', 'POST')
+  assert.equal(repeatState.revision, combined.revision)
+  await request(a, combinedUrl + '/decision', 'POST', {
+    digest: readyStep(combined, 'adaptiveApproval').result.digest, confirm: false,
+  })
+  assert.equal((await request(a, combinedUrl + '/auto-advance', 'POST')).status, 'CANCELLED')
+  report.push('C-9 combined: clarify, stop at approval, SSE revision recovery, denial and safe cancel')
+
+  await page.goto(frontend + '/adaptive')
+  await page.getByRole('heading', {name: '学习洞察'}).waitFor()
+  await page.getByRole('tab', {name: '复习建议'}).click()
+  await page.getByText(candidate.topic, {exact: true}).waitFor()
+  report.push('C-9 Chromium: authenticated learning insights and actual review data')
   assert.deepEqual(pageErrors, [])
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
 } finally {
-  console.log(JSON.stringify({ dataset: 'c8-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
+  console.log(JSON.stringify({ dataset: 'c8-c9-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
     passedChecks: report.length, report, providerTrace, billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()
