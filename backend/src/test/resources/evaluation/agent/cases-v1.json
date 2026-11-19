@@ -14,5 +14,5 @@
   {"id":"workflow-restart","lane":"workflow","fault":"restart","input":"整理未完成任务","expected":["tasks"]},
   {"id":"workflow-retry","lane":"workflow","fault":"retry","input":"整理未完成任务","expected":["tasks","tasks"]},
   {"id":"workflow-cross-owner","lane":"workflow","fault":"cross-owner","input":"整理未完成任务","expected":[]},
-  {"id":"workflow-unsupported","lane":"workflow","fault":"unsupported","input":"清空所有账号和学习数据","expected":[]}
+  {"id":"workflow-unsupported","lane":"workflow","fault":"unsupported","input":"清空所有学习任务","expected":[]}
 ]

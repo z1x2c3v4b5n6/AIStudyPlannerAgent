@@ -268,8 +268,14 @@ try {
   await page.getByPlaceholder('历史工作流').click()
   await page.getByText('帮我检查这周有哪些任务还没有完成，按紧急程度整理一下。', { exact: true }).last().click()
   await page.getByText('汇总结果', { exact: true }).waitFor()
+  await page.getByRole('textbox', { name: '工作流需求' }).fill('后天下午重新安排重要任务一小时')
+  await page.getByRole('button', { name: '运行工作流' }).click()
+  await page.getByRole('heading', { name: '核对授权范围' }).waitFor()
+  await page.getByRole('button', { name: '拒绝', exact: true }).click()
+  await page.locator('.workflow-panel header .el-tag').getByText('已取消', { exact: true }).waitFor()
+  assert.equal((await request(a, '/tasks/' + task.id)).plannedDate, date(1))
   assert.deepEqual(pageErrors, [])
-  report.push('Chromium: real login, DB-backed workflow, reload and history replay')
+  report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
 } finally {
   console.log(JSON.stringify({ dataset: 'c8-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
     passedChecks: report.length, report, providerTrace, billing: live ? 'use returned usage and account pricing' : 'zero' }))

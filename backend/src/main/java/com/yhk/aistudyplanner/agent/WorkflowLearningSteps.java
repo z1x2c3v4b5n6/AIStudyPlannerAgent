@@ -50,7 +50,8 @@ class WorkflowLearningSteps {
     }
 
     Plan plan(String text) {
-        if (text == null || text.isBlank() || text.length() > AgentService.MAX_INPUT) {
+        if (text == null || text.isBlank() || text.length() > AgentService.MAX_INPUT
+                || text.matches("(?s).*(删除|清空|批量完成|标记完成).*")) {
             throw new BusinessException(AGENT_TOOL_INVALID);
         }
         // Parse supported intents only. The output graph and write operations are server-owned.

@@ -57,7 +57,7 @@ jobs:
 
   workflow-e2e:
     name: Workflow E2E (MySQL, Redis, Chromium)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       mysql:
         image: mysql:8.4
