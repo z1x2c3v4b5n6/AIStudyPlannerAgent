@@ -160,6 +160,9 @@ class WorkflowEngine {
         var now = clock.instant();
         if (terminal(run.status())) return run;
         if (!run.expiresAt().isAfter(now)) return store.save(owner, run.state(Status.TIMED_OUT, now));
+        if (run.status() == Status.WAITING_APPROVAL && !run.updatedAt().plus(Duration.ofMinutes(10)).isAfter(now)) {
+            return store.save(owner, run.state(Status.TIMED_OUT, now));
+        }
         if (run.status() != Status.RUNNING || run.updatedAt().plus(LEASE).isAfter(now)) return run;
         var node = run.nodes().stream().filter(n -> n.status() == StepStatus.RUNNING).findFirst().orElseThrow();
         boolean retry = node.external() && node.attempts() < ATTEMPTS;

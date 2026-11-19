@@ -149,6 +149,13 @@ class AgentService {
 
     private AssistantMessage model(AgentGateway gateway, List<Message> messages,
                                   List<org.springframework.ai.tool.ToolCallback> callbacks, long deadline) {
+        int contextBytes = messages.stream().mapToInt(message -> {
+            String text = Objects.toString(message.getText(), "");
+            if (message instanceof ToolResponseMessage tools) text += tools.getResponses().toString();
+            if (message instanceof AssistantMessage assistant) text += assistant.getToolCalls().toString();
+            return text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        }).sum();
+        if (contextBytes > 48000) throw new BusinessException(AGENT_LIMIT);
         long budget = remaining(deadline);
         Future<AssistantMessage> future;
         try {

@@ -212,7 +212,7 @@ class WorkflowLearningSteps {
         if (run.nodes().stream().noneMatch(node -> node.kind() == WorkflowRun.Kind.APPROVAL
                 && node.status() == WorkflowRun.StepStatus.DONE)) throw new BusinessException(AGENT_ACTION_CONFLICT);
         var draft = adjustmentOf(run);
-        if (!free(draft.slot()) || draft.slot().date().isBefore(LocalDate.now(clock))) {
+        if (!free(draft.slot()) || LocalDateTime.of(draft.slot().date(), draft.slot().time()).isBefore(LocalDateTime.now(clock))) {
             throw new BusinessException(AGENT_ACTION_CONFLICT);
         }
         var result = new ArrayList<TaskView>();
