@@ -109,6 +109,16 @@ public class TaskService {
     }
 
     @Transactional
+    public TaskView updateIfUnchanged(TaskView expected, TaskUpdateRequest request) {
+        long userId = sessionService.currentUserId();
+        var current = taskMapper.selectOwnedForUpdate(expected.id(), userId);
+        if (current == null || !TaskView.from(current).equals(expected)) {
+            throw new BusinessException(ErrorCode.AGENT_ACTION_CONFLICT);
+        }
+        return update(expected.id(), request);
+    }
+
+    @Transactional
     public TaskView update(long id, TaskUpdateRequest request) {
         long userId = sessionService.currentUserId();
         StudyTask task = requireOwned(id, userId);
