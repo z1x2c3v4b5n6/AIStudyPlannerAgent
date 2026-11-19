@@ -2,7 +2,7 @@
 import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
-import { workflowApi, type JsonValue, type WorkflowRun } from '../../api/agent'
+import { readWorkflowEvents, workflowApi, type JsonValue, type WorkflowRun } from '../../api/agent'
 import type { PlanDraft } from '../../types/plan'
 import type { LearningPathDraft } from '../../types/learningPath'
 import { passAgentPlanDraft } from '../../utils/agentPlanDraft'
@@ -85,12 +85,43 @@ watch(() => props.sessionId, async () => {
 }, { immediate: true })
 onUnmounted(() => { sequence++ })
 
+watch(() => run.value?.scenario === 'ADAPTIVE' ? run.value.id : undefined, (id, _, onCleanup) => {
+  if (!id) return
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  const receive = (snapshot: WorkflowRun) => {
+    if (!controller.signal.aborted && run.value?.id === id && snapshot.revision > run.value.revision) run.value = snapshot
+  }
+  const live = () => !controller.signal.aborted && run.value?.id === id &&
+    !['SUCCEEDED','FAILED','CANCELLED','TIMED_OUT'].includes(run.value.status)
+  void (async () => {
+    while (live()) {
+      try {
+        await readWorkflowEvents(id, run.value?.revision ?? -1, controller.signal, receive)
+      } catch {
+        if (controller.signal.aborted) break
+      }
+      if (!live()) break
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      if (live()) {
+        try { receive((await workflowApi.get(id)).data.data) }
+        catch { /* An expired or unavailable session ends this subscription. */ break }
+      }
+    }
+  })()
+})
+
 async function drive(id: string) {
   const current = ++sequence
   busy.value = true
   error.value = ''
   try {
-    for (let i = 0; i < 16 && current === sequence; i++) {
+    if (run.value?.scenario === 'ADAPTIVE') {
+      const next = (await workflowApi.autoAdvance(id)).data.data
+      if (current !== sequence) return
+      if (!run.value || next.revision >= run.value.revision) run.value = next
+      if (next.status === 'WAITING_INPUT') choices.value = (await subjectApi.list()).data.data
+    } else for (let i = 0; i < 16 && current === sequence; i++) {
       const next = (await workflowApi.advance(id)).data.data
       if (current !== sequence) return
       run.value = next

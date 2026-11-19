@@ -67,10 +67,6 @@ class AgentSessionStore {
                 .stream().findFirst().orElse(null);
     }
 
-    void purge(Instant expiredBefore, Instant receiptsBefore) {
-        jdbc.update("DELETE FROM agent_session WHERE expires_ms<? LIMIT 100", expiredBefore.toEpochMilli());
-        jdbc.update("DELETE FROM agent_action_receipt WHERE committed_ms<? LIMIT 100", receiptsBefore.toEpochMilli());
-    }
 
     private String encode(Object data) {
         try { return mapper.writeValueAsString(data); }

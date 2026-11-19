@@ -46,7 +46,6 @@ class AgentSessions {
 
     SessionView create() {
         Instant now = clock.instant();
-        store.purge(now.minus(Duration.ofDays(7)), now.minus(Duration.ofDays(30)));
         var row = new Session(UUID.randomUUID(), auth.currentUserId(), 0, "新对话",
                 now, now.plus(SESSION_AGE), List.of(), List.of());
         store.insert(row);

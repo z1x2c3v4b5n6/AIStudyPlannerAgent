@@ -52,6 +52,22 @@ class WorkflowEngine {
 
     WorkflowRun get(UUID id) { return locked(id, run -> run); }
 
+    Function<UUID, WorkflowRun> ownedSnapshots() {
+        long owner = auth.currentUserId();
+        return id -> store.load(owner, id, false);
+    }
+
+    WorkflowRun autoAdvance(UUID id) {
+        var run = get(id);
+        if (!run.scenario().equals("ADAPTIVE")) throw new BusinessException(VALIDATION_ERROR);
+        long until = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        for (int index = 0; index < MAX_STEPS && run.status() == Status.READY
+                && System.nanoTime() < until; index++) {
+            run = advance(id);
+        }
+        return run;
+    }
+
     List<WorkflowRun> list(UUID session, int page) {
         if (page < 1 || page > 1000) throw new BusinessException(VALIDATION_ERROR);
         // History remains readable when chat becomes inactive.

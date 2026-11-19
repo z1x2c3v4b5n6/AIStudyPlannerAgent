@@ -11,7 +11,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/agent")
 public class WorkflowController {
     private final WorkflowEngine engine;
-    WorkflowController(WorkflowEngine engine) { this.engine = engine; }
+    private final WorkflowNotifications notifications;
+    WorkflowController(WorkflowEngine engine, WorkflowNotifications notifications) {
+        this.engine = engine;
+        this.notifications = notifications;
+    }
 
     @PostMapping("/sessions/{session}/workflows")
     public ApiResponse<WorkflowRun> start(@PathVariable UUID session, @Valid @RequestBody AgentController.Input input) {
@@ -25,6 +29,17 @@ public class WorkflowController {
     public ApiResponse<WorkflowRun> get(@PathVariable UUID id) { return ApiResponse.success(engine.get(id)); }
     @PostMapping("/workflows/{id}/advance")
     public ApiResponse<WorkflowRun> advance(@PathVariable UUID id) { return ApiResponse.success(engine.advance(id)); }
+    @PostMapping("/workflows/{id}/auto-advance")
+    public ApiResponse<WorkflowRun> autoAdvance(@PathVariable UUID id) { return ApiResponse.success(engine.autoAdvance(id)); }
+    @GetMapping(value="/workflows/{id}/events", produces="text/event-stream")
+    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> events(
+            @PathVariable UUID id, @RequestParam(defaultValue="-1") long after) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .header("X-Accel-Buffering", "no")
+                .body(notifications.subscribe(engine.ownedSnapshots(), id, after));
+    }
+
     @PostMapping("/workflows/{id}/decision")
     public ApiResponse<WorkflowRun> decide(@PathVariable UUID id, @Valid @RequestBody WorkflowDecision input) {
         return ApiResponse.success(engine.decide(id, input.digest(), input.confirm(),input.strategy()));
