@@ -25,7 +25,8 @@ record WorkflowRun(UUID id, UUID sessionId, String input, String scenario, long 
     }
 
     JsonNode result(String nodeId) {
-        return nodes.stream().filter(node -> node.id().equals(nodeId)).findFirst().orElseThrow().result();
+        var value = nodes.stream().filter(node -> node.id().equals(nodeId)).findFirst().orElseThrow().result();
+        return value == null || value.isNull() ? null : value;
     }
 
     WorkflowRun change(Node node, Status state, Instant now) {

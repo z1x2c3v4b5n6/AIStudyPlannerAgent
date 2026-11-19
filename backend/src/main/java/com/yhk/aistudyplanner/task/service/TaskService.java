@@ -73,6 +73,23 @@ public class TaskService {
                 page, pageSize, result.getTotal());
     }
 
+    public PageResponse<TaskView> openForWindow(LocalDate start, LocalDate end) {
+        long userId = sessionService.currentUserId();
+        var query = new LambdaQueryWrapper<StudyTask>()
+                .eq(StudyTask::getUserId, userId)
+                .in(StudyTask::getStatus, TaskStatus.TODO, TaskStatus.IN_PROGRESS);
+        if (start != null) {
+            query.and(q -> q.between(StudyTask::getPlannedDate, start, end)
+                    .or().ge(StudyTask::getDueAt, start.atStartOfDay())
+                    .lt(StudyTask::getDueAt, end.plusDays(1).atStartOfDay()));
+        } else if (end != null) {
+            query.and(q -> q.isNull(StudyTask::getPlannedDate).or().le(StudyTask::getPlannedDate, end));
+        }
+        query.orderByDesc(StudyTask::getPriority).orderByAsc(StudyTask::getDueAt).orderByAsc(StudyTask::getId);
+        var page = taskMapper.selectPage(new Page<>(1, 25), query);
+        return new PageResponse<>(page.getRecords().stream().map(TaskView::from).toList(), 1, 25, page.getTotal());
+    }
+
     public TaskView get(long id) {
         return TaskView.from(requireOwned(id, sessionService.currentUserId()));
     }

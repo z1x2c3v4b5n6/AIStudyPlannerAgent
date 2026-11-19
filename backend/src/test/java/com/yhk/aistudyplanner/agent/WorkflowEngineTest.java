@@ -20,8 +20,9 @@ class WorkflowEngineTest {
         var clock = Clock.systemUTC();
         var sessions = new AgentSessions(auth, null, null, new AgentSessionStore(db.jdbc, mapper), mapper, clock, db.transactions);
         var tools = mock(AgentTools.class);
-        when(tools.run(eq("open_tasks"), any())).thenReturn(new AgentTools.Result(List.of()));
-        var steps = new WorkflowLearningSteps(tools, mapper);
+        var tasks = mock(com.yhk.aistudyplanner.task.service.TaskService.class);
+        when(tasks.openForWindow(null, null)).thenReturn(new com.yhk.aistudyplanner.common.response.PageResponse<>(List.of(),1,25,0));
+        var steps = new WorkflowLearningSteps(tools, mapper, tasks, null, null, clock);
         var store = new WorkflowStore(db.jdbc, mapper);
         var first = new WorkflowEngine(store, sessions, auth, steps, clock, db.transactions);
         var id = first.start(sessions.create().id(), "整理任务").id();
@@ -33,14 +34,14 @@ class WorkflowEngineTest {
         for (int i = 0; i < 4; i++) restarted.advance(id);
         assertEquals(WorkflowRun.Status.SUCCEEDED, restarted.get(id).status());
         assertEquals(1, restarted.get(id).nodes().get(0).attempts());
-        verify(tools).run(eq("open_tasks"), any());
+        verify(tasks).openForWindow(null, null);
         when(auth.currentUserId()).thenReturn(2L);
         assertThrows(BusinessException.class, () -> restarted.advance(id));
     }
 
     @Test
     void rejectsDependenciesThatReferenceLaterSteps() {
-        var steps = new WorkflowLearningSteps(null, new ObjectMapper());
+        var steps = new WorkflowLearningSteps(null, new ObjectMapper(), null, null, null, Clock.systemUTC());
         var nodes = new java.util.ArrayList<>(steps.plan("整理任务").nodes());
         var source = nodes.get(0);
         nodes.set(0, new WorkflowRun.Node(source.id(), source.kind(), source.operation(), List.of("end"), null,
