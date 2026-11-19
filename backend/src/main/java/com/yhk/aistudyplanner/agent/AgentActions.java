@@ -59,20 +59,34 @@ class AgentActions {
         this.mapper = mapper;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAdaptive(AdaptiveAgentTools adaptive) { this.adaptive=adaptive; }
+    private AdaptiveAgentTools adaptive;
+
     List<ToolCallback> callbacks() {
-        return List.of(
+        var result=new ArrayList<>(List.of(
                 tools.callback(new AgentTools.Tool<>(CREATE, "提出新建任务。使用查询得到的科目ID，需用户确认", TaskCreateRequest.class, null)),
                 tools.callback(new AgentTools.Tool<>(EDIT, "提出修改已查询的未完成任务。仅填写要改变的字段，日期ISO格式，需用户确认", Edit.class, null)),
-                tools.callback(new AgentTools.Tool<>(PLAN, "基于已查询的真实任务提出每日计划草案，确认后返回草案，保存使用每日计划流程", Plan.class, null)));
+                tools.callback(new AgentTools.Tool<>(PLAN, "基于已查询的真实任务提出每日计划草案，确认后返回草案，保存使用每日计划流程", Plan.class, null))));
+        if(adaptive!=null) {
+            result.add(tools.callback(new AgentTools.Tool<>("propose_adaptive_plan","预览并提案多日学习计划，明确选择策略",
+                    AdaptiveAgentTools.PlanChoice.class,null)));
+            result.add(tools.callback(new AgentTools.Tool<>("propose_review_tasks","提案批量复习任务，必须用户确认",
+                    AdaptiveAgentTools.ReviewArgs.class,null)));
+        }
+        return List.copyOf(result);
     }
 
-    boolean supports(String name) { return CREATE.equals(name) || EDIT.equals(name) || PLAN.equals(name); }
+    boolean supports(String name) { return CREATE.equals(name) || EDIT.equals(name) || PLAN.equals(name)
+            || adaptive!=null && ("propose_adaptive_plan".equals(name)||"propose_review_tasks".equals(name)); }
 
     Proposal propose(String name, JsonNode arguments, Map<Long, TaskView> observed) {
         return switch (name) {
             case CREATE -> create(tools.bind(arguments, TaskCreateRequest.class));
             case EDIT -> edit(tools.bind(arguments, Edit.class), observed);
             case PLAN -> plan(tools.bind(arguments, Plan.class), observed);
+            case "propose_adaptive_plan" -> adaptive.proposePlan(tools.bind(arguments, AdaptiveAgentTools.PlanChoice.class));
+            case "propose_review_tasks" -> adaptive.proposeReview(tools.bind(arguments, AdaptiveAgentTools.ReviewArgs.class));
             default -> throw new BusinessException(AGENT_TOOL_INVALID);
         };
     }
@@ -141,6 +155,7 @@ class AgentActions {
                 if (!plan.preview().items().equals(confirmed.items())) throw new BusinessException(AGENT_ACTION_CONFLICT);
                 yield confirmed;
             }
+            case "propose_adaptive_plan", "propose_review_tasks" -> adaptive.apply(proposal);
             default -> throw new BusinessException(AGENT_TOOL_INVALID);
         };
     }

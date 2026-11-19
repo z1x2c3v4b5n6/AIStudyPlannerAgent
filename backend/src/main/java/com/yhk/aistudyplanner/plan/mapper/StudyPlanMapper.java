@@ -12,6 +12,9 @@ import java.time.LocalDate; import java.time.LocalDateTime; import java.util.Lis
 
 @Mapper
 public interface StudyPlanMapper extends BaseMapper<StudyPlan> {
+    @Select("SELECT id FROM `user` WHERE id=#{userId} FOR UPDATE")
+    Long lockOwner(@Param("userId") long userId);
+
     @Select("SELECT * FROM study_plan WHERE id=#{id} AND user_id=#{userId} FOR UPDATE")
     StudyPlan selectOwnedForUpdate(@Param("id") long id, @Param("userId") long userId);
 

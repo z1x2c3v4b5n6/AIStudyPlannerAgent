@@ -52,6 +52,22 @@ class WorkflowEngine {
 
     WorkflowRun get(UUID id) { return locked(id, run -> run); }
 
+    Function<UUID, WorkflowRun> ownedSnapshots() {
+        long owner = auth.currentUserId();
+        return id -> store.load(owner, id, false);
+    }
+
+    WorkflowRun autoAdvance(UUID id) {
+        var run = get(id);
+        if (!run.scenario().equals("ADAPTIVE")) throw new BusinessException(VALIDATION_ERROR);
+        long until = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        for (int index = 0; index < MAX_STEPS && run.status() == Status.READY
+                && System.nanoTime() < until; index++) {
+            run = advance(id);
+        }
+        return run;
+    }
+
     List<WorkflowRun> list(UUID session, int page) {
         if (page < 1 || page > 1000) throw new BusinessException(VALIDATION_ERROR);
         // History remains readable when chat becomes inactive.
@@ -80,7 +96,9 @@ class WorkflowEngine {
         });
     }
 
-    WorkflowRun decide(UUID id, String token, boolean approve) {
+    WorkflowRun decide(UUID id, String token, boolean approve) { return decide(id,token,approve,null); }
+
+    WorkflowRun decide(UUID id, String token, boolean approve,String strategy) {
         long owner = auth.currentUserId();
         return locked(id, run -> {
             if (run.status() != Status.WAITING_APPROVAL) return run;
@@ -88,8 +106,36 @@ class WorkflowEngine {
             if (node.kind() != Kind.APPROVAL || !node.result().path("digest").asText().equals(token)) {
                 throw new BusinessException(AGENT_ACTION_NOT_FOUND);
             }
+            JsonNode result=node.result();
+            if(approve&&node.operation().equals("adaptiveApproval")){
+                if(strategy==null || !Set.of("MINIMAL","PRIORITY","BALANCED").contains(strategy))
+                    throw new BusinessException(VALIDATION_ERROR);
+                boolean feasible=false;
+                for(var scheme:result.path("preview")) if(strategy.equals(scheme.path("strategy").asText())
+                        && !scheme.path("scheduled").isEmpty()) feasible=true;
+                if(!feasible) throw new BusinessException(PLAN_DRAFT_EMPTY);
+                var approved=((com.fasterxml.jackson.databind.node.ObjectNode)result).deepCopy();
+                approved.put("strategy",strategy);
+                result=approved;
+            }
             return store.save(owner, run.change(node.finish(approve ? StepStatus.DONE : StepStatus.SKIPPED,
-                    node.result(), null, clock.instant()), approve ? Status.READY : Status.CANCELLED, clock.instant()));
+                    result, null, clock.instant()), approve ? Status.READY : Status.CANCELLED, clock.instant()));
+        });
+    }
+
+    WorkflowRun clarify(UUID id, int budget,Long subjectId) {
+        if(budget<15||budget>720||subjectId!=null&&subjectId<1) throw new BusinessException(VALIDATION_ERROR);
+        long owner=auth.currentUserId();
+        return locked(id, run->{
+            if(run.status()!=Status.WAITING_INPUT) throw new BusinessException(AGENT_ACTION_CONFLICT);
+            var plan=run.nodes().stream().filter(node->node.id().equals("plan")).findFirst().orElseThrow();
+            var clarification=run.nodes().stream().filter(node->node.kind()==Kind.CLARIFY).findFirst().orElseThrow();
+            var input=((com.fasterxml.jackson.databind.node.ObjectNode)plan.input()).deepCopy();
+            input.put("budget",budget);
+            if(subjectId!=null) input.put("subjectId",subjectId);
+            var now=clock.instant();
+            var next=run.change(plan.withInput(input),Status.READY,now);
+            return store.save(owner,next.change(clarification.finish(StepStatus.DONE,input,null,now),Status.READY,now));
         });
     }
 
@@ -132,18 +178,19 @@ class WorkflowEngine {
     private WorkflowRun finish(long owner, WorkflowRun run, WorkflowRun.Node node, JsonNode output) {
         var next = switch (node.kind()) {
             case APPROVAL -> Status.WAITING_APPROVAL;
+            case CLARIFY -> Status.WAITING_INPUT;
             case END -> Status.SUCCEEDED;
             case ERROR -> Status.FAILED;
             default -> Status.READY;
         };
-        return store.save(owner, run.change(node.finish(next == Status.WAITING_APPROVAL
+        return store.save(owner, run.change(node.finish(next == Status.WAITING_APPROVAL || next == Status.WAITING_INPUT
                 ? StepStatus.WAITING : StepStatus.DONE, output, null, clock.instant()), next, clock.instant()));
     }
 
     private WorkflowRun failed(long owner, WorkflowRun expected, WorkflowRun.Node node, ErrorCode error) {
         return locked(expected.id(), run -> {
             if (run.revision() != expected.revision() || terminal(run.status())) return run;
-            boolean retry = !node.operation().equals("apply") && node.attempts() < ATTEMPTS
+            boolean retry = !Set.of("apply","adaptiveApply").contains(node.operation()) && node.attempts() < ATTEMPTS
                     && (error == AGENT_TIMEOUT || error == AI_PROVIDER_TIMEOUT || error == AI_PROVIDER_UNAVAILABLE
                         || error == AI_PROVIDER_RATE_LIMITED || error == INTERNAL_ERROR);
             return store.save(owner, run.change(node.finish(retry ? StepStatus.READY : StepStatus.FAILED, null,

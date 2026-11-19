@@ -11,7 +11,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/agent")
 public class WorkflowController {
     private final WorkflowEngine engine;
-    WorkflowController(WorkflowEngine engine) { this.engine = engine; }
+    private final WorkflowNotifications notifications;
+    WorkflowController(WorkflowEngine engine, WorkflowNotifications notifications) {
+        this.engine = engine;
+        this.notifications = notifications;
+    }
 
     @PostMapping("/sessions/{session}/workflows")
     public ApiResponse<WorkflowRun> start(@PathVariable UUID session, @Valid @RequestBody AgentController.Input input) {
@@ -25,13 +29,31 @@ public class WorkflowController {
     public ApiResponse<WorkflowRun> get(@PathVariable UUID id) { return ApiResponse.success(engine.get(id)); }
     @PostMapping("/workflows/{id}/advance")
     public ApiResponse<WorkflowRun> advance(@PathVariable UUID id) { return ApiResponse.success(engine.advance(id)); }
+    @PostMapping("/workflows/{id}/auto-advance")
+    public ApiResponse<WorkflowRun> autoAdvance(@PathVariable UUID id) { return ApiResponse.success(engine.autoAdvance(id)); }
+    @GetMapping(value="/workflows/{id}/events", produces="text/event-stream")
+    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> events(
+            @PathVariable UUID id, @RequestParam(defaultValue="-1") long after) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .header("X-Accel-Buffering", "no")
+                .body(notifications.subscribe(engine.ownedSnapshots(), id, after));
+    }
+
     @PostMapping("/workflows/{id}/decision")
-    public ApiResponse<WorkflowRun> decide(@PathVariable UUID id, @Valid @RequestBody AgentController.Decision input) {
-        return ApiResponse.success(engine.decide(id, input.digest(), input.confirm()));
+    public ApiResponse<WorkflowRun> decide(@PathVariable UUID id, @Valid @RequestBody WorkflowDecision input) {
+        return ApiResponse.success(engine.decide(id, input.digest(), input.confirm(),input.strategy()));
     }
     @PostMapping("/workflows/{id}/control")
     public ApiResponse<WorkflowRun> control(@PathVariable UUID id, @Valid @RequestBody Control input) {
         return ApiResponse.success(engine.control(id, input.command()));
     }
+    @PostMapping("/workflows/{id}/clarification")
+    public ApiResponse<WorkflowRun> clarify(@PathVariable UUID id,@Valid @RequestBody Clarification input) {
+        return ApiResponse.success(engine.clarify(id,input.dailyMinutes(),input.subjectId()));
+    }
+    record Clarification(@NotNull @Min(15) @Max(720) Integer dailyMinutes,@Positive Long subjectId) {}
+    record WorkflowDecision(@NotBlank @Pattern(regexp="[a-f0-9]{64}") String digest,
+                            @NotNull Boolean confirm, String strategy) {}
     record Control(@NotNull WorkflowEngine.Control command) {}
 }
