@@ -1,6 +1,8 @@
 package com.yhk.aistudyplanner.ai.config;
 
 import com.yhk.aistudyplanner.ai.gateway.*;
+import com.yhk.aistudyplanner.agent.AgentGateway;
+import com.yhk.aistudyplanner.agent.DeepSeekAgentGateway;
 import java.time.Duration;
 import java.util.Map;
 import org.springframework.ai.chat.client.ChatClient;
@@ -19,19 +21,29 @@ public class AiChatConfiguration {
   @ConditionalOnProperty(prefix = "app.ai", name = "enabled", havingValue = "true")
   @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${app.ai.api-key:}')")
   ChatClient deepSeekChatClient(AiPlanningProperties p) {
+    return ChatClient.create(OpenAiChatModel.builder()
+        .openAiApi(api(p, p.getTimeoutSeconds())).defaultOptions(buildChatOptions(p)).build());
+  }
+
+  @Bean
+  @ConditionalOnBean(name = "deepSeekChatClient")
+  AgentGateway deepSeekAgentGateway(AiPlanningProperties p) {
+    var options = OpenAiChatOptions.builder().model(p.getModel()).temperature(p.getTemperature())
+        .maxTokens(Math.min(1200, p.getMaxTokens())).internalToolExecutionEnabled(false).build();
+    return new DeepSeekAgentGateway(OpenAiChatModel.builder()
+        .openAiApi(api(p, Math.min(12, p.getTimeoutSeconds()))).defaultOptions(options).build());
+  }
+
+  private OpenAiApi api(AiPlanningProperties p, int timeoutSeconds) {
     var factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(Duration.ofSeconds(p.getTimeoutSeconds()));
-    factory.setReadTimeout(Duration.ofSeconds(p.getTimeoutSeconds()));
-    var api =
-        OpenAiApi.builder()
+    factory.setConnectTimeout(Duration.ofSeconds(timeoutSeconds));
+    factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
+    return OpenAiApi.builder()
             .baseUrl(p.getBaseUrl())
             .completionsPath(p.getCompletionsPath())
             .apiKey(p.getApiKey())
             .restClientBuilder(RestClient.builder().requestFactory(factory))
             .build();
-    var options = buildChatOptions(p);
-    return ChatClient.create(
-        OpenAiChatModel.builder().openAiApi(api).defaultOptions(options).build());
   }
 
   static OpenAiChatOptions buildChatOptions(AiPlanningProperties p) {
