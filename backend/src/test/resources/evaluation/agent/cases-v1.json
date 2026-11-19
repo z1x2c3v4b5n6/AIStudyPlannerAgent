@@ -1,0 +1,18 @@
+[
+  {"id":"chat-single","lane":"chat","fault":"none","calls":[["today_tasks","{}"]],"expected":["today_tasks"]},
+  {"id":"chat-chain","lane":"chat","fault":"none","calls":[["today_tasks","{}"],["study_statistics","{}"]],"expected":["today_tasks","study_statistics"]},
+  {"id":"tool-params","lane":"chat","fault":"bad-params","calls":[["search_knowledge","{}"]],"expected":["search_knowledge"]},
+  {"id":"tool-selection","lane":"chat","fault":"wrong-tool","calls":[["study_statistics","{}"]],"expected":["today_tasks"]},
+  {"id":"tool-unknown","lane":"chat","fault":"unknown","calls":[["delete_everything","{}"]],"expected":[]},
+  {"id":"tool-hallucinated","lane":"chat","fault":"hallucinated","calls":[["propose_task_update","{\"taskId\":999,\"priority\":4}"]],"expected":["propose_task_update"]},
+  {"id":"tool-injection","lane":"chat","fault":"injection","calls":[["today_tasks","{\"userId\":999}"]],"expected":["today_tasks"]},
+  {"id":"tool-timeout","lane":"chat","fault":"timeout","calls":[["today_tasks","{}"]],"expected":["today_tasks"]},
+  {"id":"workflow-organize","lane":"workflow","fault":"none","input":"整理这周未完成任务","expected":["tasks"]},
+  {"id":"workflow-multi","lane":"workflow","fault":"approve","input":"明天两小时重新安排任务并生成计划","expected":["tasks","calendar","apply","planDraft"]},
+  {"id":"workflow-reject","lane":"workflow","fault":"reject","input":"明天重新安排任务","expected":["tasks","calendar"]},
+  {"id":"workflow-cancel","lane":"workflow","fault":"cancel","input":"明天重新安排任务","expected":["tasks","calendar"]},
+  {"id":"workflow-restart","lane":"workflow","fault":"restart","input":"整理未完成任务","expected":["tasks"]},
+  {"id":"workflow-retry","lane":"workflow","fault":"retry","input":"整理未完成任务","expected":["tasks","tasks"]},
+  {"id":"workflow-cross-owner","lane":"workflow","fault":"cross-owner","input":"整理未完成任务","expected":[]},
+  {"id":"workflow-unsupported","lane":"workflow","fault":"unsupported","input":"清空所有账号和学习数据","expected":[]}
+]
