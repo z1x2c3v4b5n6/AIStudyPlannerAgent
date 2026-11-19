@@ -78,6 +78,7 @@ public class StudyPlanService {
     @Transactional
     public PlanDetailView confirm(PlanConfirmRequest request) {
         long userId = session.currentUserId();
+        planMapper.lockOwner(userId);
         StudyPlan existing = findByDraft(userId, request.draftId());
         if (existing != null) return detail(existing, userId);
         validateConfirm(userId, request);
