@@ -157,7 +157,7 @@ async function turnPage(step: number) {
       </el-button>
     </div>
     <div v-if="runs.length || page > 1" class="actions" aria-label="历史工作流">
-      <el-select :model-value="run?.id" placeholder="历史工作流" :disabled="busy || changing" style="width: min(28rem, 100%)" @change="select">
+      <el-select data-testid="workflow-history" aria-label="历史工作流" :model-value="run?.id" placeholder="历史工作流" :disabled="busy || changing" style="width: min(28rem, 100%)" @change="select">
         <el-option v-for="row in runs" :key="row.id" :value="row.id" :label="row.input" />
       </el-select>
       <el-button :disabled="page === 1 || busy" @click="turnPage(-1)">上一页</el-button>
