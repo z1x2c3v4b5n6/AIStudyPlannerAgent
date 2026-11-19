@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { isAxiosError } from 'axios'
 import { agentApi, type AgentAction, type AgentSession, type AgentSummary } from '../../api/agent'
 import AgentData from './AgentData.vue'
+import AgentWorkflowPanel from './AgentWorkflowPanel.vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { passAgentPlanDraft } from '../../utils/agentPlanDraft'
@@ -15,6 +16,8 @@ const sessions = ref<AgentSummary[]>([])
 const active = ref<AgentSession>()
 const input = ref('')
 const busy = ref('')
+const mode = ref<'chat' | 'workflow'>('chat')
+const sessionPage = ref(1)
 const error = ref('')
 const bottom = ref<HTMLElement>()
 const now = ref(Date.now())
@@ -35,7 +38,7 @@ function status(action: AgentAction) {
   return action.status === 'PENDING' && Date.parse(action.expiresAt) <= now.value ? 'EXPIRED' : action.status
 }
 async function refreshList() {
-  sessions.value = (await agentApi.list()).data.data
+  sessions.value = (await agentApi.list(sessionPage.value)).data.data
 }
 async function run(label: string, work: () => Promise<void>) {
   if (busy.value) return
@@ -66,7 +69,24 @@ function create() {
   return run('正在创建对话', async () => {
     active.value = (await agentApi.create()).data.data
     input.value = ''
+    sessionPage.value = 1
     await refreshList()
+  })
+}
+function removeSession() {
+  if (!active.value || !window.confirm('删除当前对话及其工作流？')) return
+  return run('正在删除对话', async () => {
+    if (!active.value) return
+    await agentApi.remove(active.value.id)
+    active.value = undefined
+    await refreshList()
+  })
+}
+function changePage(step: number) {
+  return run('正在载入历史', async () => {
+    const next = sessionPage.value + step
+    sessions.value = (await agentApi.list(next)).data.data
+    sessionPage.value = next
   })
 }
 function send() {
@@ -102,12 +122,24 @@ function decide(action: AgentAction, confirm: boolean) {
               :aria-current="active?.id === session.id ? 'true' : undefined" :disabled="!!busy" @click="open(session.id)">
         {{ session.title }}
       </button>
+      <el-button v-if="sessionPage > 1" :disabled="!!busy" @click="changePage(-1)">上一页</el-button>
+      <el-button v-if="sessions.length === 10" :disabled="!!busy" @click="changePage(1)">下一页</el-button>
     </aside>
     <main class="assistant-main">
       <header>
         <h1>{{ active?.title || 'AI 学习助手' }}</h1>
-        <el-button v-if="active" size="small" :disabled="!!busy" @click="open(active.id)">刷新对话</el-button>
+        <div>
+          <el-button v-if="active" size="small" :disabled="!!busy" @click="open(active.id)">刷新对话</el-button>
+          <el-button v-if="active" size="small" :disabled="!!busy" @click="removeSession">删除对话</el-button>
+        </div>
       </header>
+      <el-radio-group v-model="mode" aria-label="助手模式">
+        <el-radio-button value="chat">聊天</el-radio-button>
+        <el-radio-button value="workflow">工作流</el-radio-button>
+      </el-radio-group>
+      <AgentWorkflowPanel v-if="mode === 'workflow' && active" :session-id="active.id" />
+      <el-button v-else-if="mode === 'workflow'" :disabled="!!busy" @click="create">新建对话以运行工作流</el-button>
+      <template v-if="mode === 'chat'">
       <div v-if="!active?.messages.length" class="examples">
         <el-button v-for="prompt in examplePrompts" :key="prompt" :disabled="!!busy" @click="input = prompt">{{ prompt }}</el-button>
       </div>
@@ -144,6 +176,7 @@ function decide(action: AgentAction, confirm: boolean) {
         <el-button type="primary" native-type="submit" :disabled="!input.trim() || !!busy || pending">发送</el-button>
       </form>
       <p v-if="pending" class="progress">确认或取消待处理操作后可继续对话。</p>
+      </template>
     </main>
   </section>
 </template>

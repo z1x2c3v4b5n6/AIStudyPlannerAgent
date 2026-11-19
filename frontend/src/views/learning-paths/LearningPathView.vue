@@ -8,13 +8,17 @@ import type { LearningPathConfirmRequest, LearningPathDetail, LearningPathDraft,
 import { inclusiveBusinessDays, shanghaiDate } from '../../utils/businessTime'
 import { exceedsLearningPathDuration, LEARNING_PATH_DURATION_MESSAGE, maxLearningPathTargetDate } from '../../utils/learningPathPeriod.js'
 
+import { useAuthStore } from '../../stores/auth'
+import { takeAgentPathDraft } from '../../utils/agentPathDraft'
+
+const handoff = takeAgentPathDraft(useAuthStore().user?.id)
 const examples=['我Java基础一般，希望用10天系统复习Java基础，为Java后端面试做准备，每天2小时。','我想用7天补齐Python基础，每天学习90分钟，节奏不要太紧。','为数据库面试设计8天复习路线，重点是MySQL索引和SQL。']
 const subjects=ref<Subject[]>([]), paths=ref<LearningPathListItem[]>([]), total=ref(0), page=ref(1)
-const generating=ref(false), confirming=ref(false), loading=ref(false), draft=ref<LearningPathDraft|null>(null)
-const generatorExpanded=ref(true), generationError=ref<string|null>(null)
+const generating=ref(false), confirming=ref(false), loading=ref(false), draft=ref<LearningPathDraft|null>(handoff ?? null)
+const generatorExpanded=ref(!handoff), generationError=ref<string|null>(null)
 const detail=ref<LearningPathDetail|null>(null), detailVisible=ref(false), createTaskId=ref<number|null>(null)
 const activeStages=ref<string[]>([]), selectedItem=ref<LearningPathItem|null>(null), itemDetailVisible=ref(false)
-const activePathTab=ref<'paths'|'generate'>('paths')
+const activePathTab=ref<'paths'|'generate'>(handoff ? 'generate' : 'paths')
 const form=reactive({requirement:'',subjectId:null as number|null,currentLevel:'',targetLevel:'',dailyMinutes:120,startDate:shanghaiDate(),targetDate:'',preferences:''})
 const draftItems=computed(()=>draft.value?.stages.flatMap(stage=>stage.items.map(item=>({...item,stageNo:stage.stageNo,stageTitle:stage.title,stageDescription:stage.description})))||[])
 const draftDurationDays=computed(()=>{

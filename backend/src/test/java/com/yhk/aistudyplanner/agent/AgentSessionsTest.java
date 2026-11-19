@@ -11,8 +11,6 @@ import java.time.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.SimpleTransactionStatus;
 
 class AgentSessionsTest {
     @Test
@@ -22,15 +20,16 @@ class AgentSessionsTest {
         var clock = mock(Clock.class);
         Instant now = Instant.parse("2026-11-19T00:00:00Z");
         when(clock.instant()).thenReturn(now);
-        var mapper = new ObjectMapper();
+        var mapper = new ObjectMapper().findAndRegisterModules();
         var agent = mock(AgentService.class);
-        var transactions = mock(PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        var database = new AgentTestDatabase("V5__agent_sessions.sql");
+        var executor = mock(AgentActions.class);
+        var store = new AgentSessionStore(database.jdbc, mapper);
         var applications = new AtomicInteger();
-        var proposal = new AgentActions.Proposal("propose_task_create", "Java", mapper.createObjectNode(),
-                applications::incrementAndGet);
+        var proposal = new AgentActions.Proposal("propose_task_create", "Java", mapper.createObjectNode(), mapper.createObjectNode());
+        when(executor.apply(any())).thenAnswer(call -> applications.incrementAndGet());
         when(agent.run(anyString(), anyList())).thenReturn(new AgentService.Turn("待确认", List.of(), proposal));
-        var sessions = new AgentSessions(auth, agent, mapper, clock, transactions);
+        var sessions = new AgentSessions(auth, agent, executor, store, mapper, clock, database.transactions);
         var id = sessions.create().id();
         var action = sessions.send(id, "创建任务").actions().get(0);
         when(auth.currentUserId()).thenReturn(2L);
@@ -42,7 +41,8 @@ class AgentSessionsTest {
         assertEquals(0, applications.get());
         assertEquals(AgentSessions.ActionStatus.EXECUTED,
                 sessions.decide(id, action.id(), action.digest(), true).actions().get(0).status());
-        sessions.decide(id, action.id(), action.digest(), true);
+        var restarted = new AgentSessions(auth, agent, executor, store, mapper, clock, database.transactions);
+        restarted.decide(id, action.id(), action.digest(), true);
         assertEquals(1, applications.get());
         var cancelled = sessions.send(id, "创建另一个").actions().get(1);
         sessions.decide(id, cancelled.id(), cancelled.digest(), false);
