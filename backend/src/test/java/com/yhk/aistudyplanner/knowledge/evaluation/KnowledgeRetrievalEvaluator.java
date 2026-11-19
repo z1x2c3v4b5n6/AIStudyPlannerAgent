@@ -6,12 +6,20 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 public class KnowledgeRetrievalEvaluator {
-    private final KnowledgeRetriever retriever;
+    private final BiFunction<KnowledgeRetrievalEvaluationCase, Integer, List<String>> rankings;
 
     public KnowledgeRetrievalEvaluator(KnowledgeRetriever retriever) {
-        this.retriever = retriever;
+        this((evaluationCase, k) -> retriever.search(new KnowledgeSearchRequest(
+                        evaluationCase.query(), evaluationCase.domain(), k)).stream()
+                .map(result -> result.unit().id())
+                .toList());
+    }
+
+    KnowledgeRetrievalEvaluator(BiFunction<KnowledgeRetrievalEvaluationCase, Integer, List<String>> rankings) {
+        this.rankings = rankings;
     }
 
     public KnowledgeRetrievalEvaluation evaluate(
@@ -42,10 +50,7 @@ public class KnowledgeRetrievalEvaluator {
 
     private KnowledgeRetrievalEvaluationResult evaluateCase(
             KnowledgeRetrievalEvaluationCase evaluationCase, int k) {
-        List<String> retrievedIds = retriever.search(new KnowledgeSearchRequest(
-                        evaluationCase.query(), evaluationCase.domain(), k)).stream()
-                .map(result -> result.unit().id())
-                .toList();
+        List<String> retrievedIds = rankings.apply(evaluationCase, k);
         Set<String> relevantIds = new HashSet<>(evaluationCase.relevantIds());
         long relevantRetrieved = retrievedIds.stream().filter(relevantIds::contains).count();
         double precision = retrievedIds.isEmpty()

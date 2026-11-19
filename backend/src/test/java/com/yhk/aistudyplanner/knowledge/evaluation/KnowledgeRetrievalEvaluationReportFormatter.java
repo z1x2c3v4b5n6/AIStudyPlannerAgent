@@ -16,18 +16,23 @@ public class KnowledgeRetrievalEvaluationReportFormatter {
                 .max(Comparator.comparingInt(evaluation -> evaluation.metrics().k()))
                 .orElseThrow();
         report.append("Weak Cases (K=").append(largestK.metrics().k()).append("):\n");
-        largestK.weakCases().stream()
+        largestK.results().stream()
+                .filter(result -> result.recall() < 1.0 || result.reciprocalRank() < 1.0)
                 .sorted(Comparator.comparingDouble(KnowledgeRetrievalEvaluationResult::recall)
                         .thenComparingDouble(KnowledgeRetrievalEvaluationResult::reciprocalRank)
                         .thenComparing(KnowledgeRetrievalEvaluationResult::caseId))
-                .limit(5)
                 .forEach(result -> report
                         .append("- ").append(result.caseId()).append("\n")
                         .append("  query: ").append(result.query()).append("\n")
                         .append("  expected: ").append(result.relevantIds()).append("\n")
                         .append("  retrieved: ").append(result.retrievedIds()).append("\n")
+                        .append("  first relevant rank: ").append(firstRelevantRank(result)).append("\n")
                         .append("  missing: ").append(result.missingRelevantIds()).append("\n"));
         return report.toString();
+    }
+
+    private int firstRelevantRank(KnowledgeRetrievalEvaluationResult result) {
+        return result.reciprocalRank() == 0 ? 0 : (int) Math.round(1 / result.reciprocalRank());
     }
 
     private void appendMetrics(StringBuilder report, KnowledgeRetrievalMetrics metrics) {

@@ -10,7 +10,6 @@ public record KnowledgeSearchRequest(String query, KnowledgeDomain domain, int l
         if (query == null || query.isBlank()) {
             throw new IllegalArgumentException("Knowledge search query must not be blank");
         }
-        query = query.trim();
         if (limit < 1 || limit > MAX_LIMIT) {
             throw new IllegalArgumentException("Knowledge search limit must be between 1 and " + MAX_LIMIT);
         }

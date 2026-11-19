@@ -18,6 +18,7 @@ import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchResult;
 import com.yhk.aistudyplanner.knowledge.model.KnowledgeDifficulty;
 import com.yhk.aistudyplanner.knowledge.model.KnowledgeDomain;
 import com.yhk.aistudyplanner.knowledge.model.KnowledgeUnit;
+import com.yhk.aistudyplanner.knowledge.repository.ResourceKnowledgeRepository;
 import com.yhk.aistudyplanner.knowledge.service.KnowledgeContextFormatter;
 import com.yhk.aistudyplanner.knowledge.service.KnowledgeRetriever;
 import com.yhk.aistudyplanner.knowledge.service.LearningPathKnowledgeQueryBuilder;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.*;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.core.io.DefaultResourceLoader;
 
 class LearningPathAiServiceTest {
     private AiPlanningProperties properties; private PlanningGateway gateway; private LearningPathAiService service;
@@ -61,6 +63,29 @@ class LearningPathAiServiceTest {
         assertEquals("Java基础路线",service.generate(request()).title());
         verify(knowledgeRetriever).search(any());
         verify(gateway).generate(anyString(),anyString());
+    }
+    @Test
+    void realRetrieverEnrichesKnownTopicsAndAllowsEmptyContext() throws Exception {
+        var mapper = new ObjectMapper();
+        var repository = new ResourceKnowledgeRepository(mapper, new DefaultResourceLoader());
+        var realRetriever = new KnowledgeRetriever(repository);
+        when(knowledgeRetriever.search(any())).thenAnswer(invocation -> realRetriever.search(invocation.getArgument(0)));
+        when(gateway.generate(anyString(), anyString())).thenReturn(valid());
+
+        for (String query : List.of("检索增强生成", "玄武量子香蕉xyz987")) {
+            var request = new LearningPathGenerateRequest(query, null, null, null,
+                    120, today, today.plusDays(2), null);
+            assertEquals("Java基础路线", service.generate(request).title());
+        }
+
+        var userPrompts = ArgumentCaptor.forClass(String.class);
+        verify(gateway, times(2)).generate(anyString(), userPrompts.capture());
+        var withKnowledge = mapper.readTree(userPrompts.getAllValues().get(0)).path("retrievedKnowledgeContext");
+        var withoutKnowledge = mapper.readTree(userPrompts.getAllValues().get(1)).path("retrievedKnowledgeContext");
+        assertTrue(withKnowledge.asText().contains("rag-architecture"));
+        assertFalse(withKnowledge.asText().contains("matchReasons"));
+        assertTrue(withoutKnowledge.isTextual());
+        assertEquals("", withoutKnowledge.asText());
     }
     @Test void retrievalUsesTopEightAndDeterministicAiDomain(){
         var aiRequest=new LearningPathGenerateRequest("学习RAG和Prompt",null,"了解LLM","构建AI应用",120,today,today.plusDays(6),"重视Agent");

@@ -97,7 +97,7 @@ AI 不能创建、修改或完成业务数据。快速创建任务也不是 AI �
 - Java Backend：Java 基础、集合、并发、JVM 和 Spring Backend 核心知识。
 - AI Application Development：LLM、Prompt Engineering、RAG、AI Application 和 Agent 核心概念。
 
-`KnowledgeRetriever` 使用 deterministic weighted keyword/tag retrieval，对 topic、alias、tag、stage、key point、learning objective 和 prerequisite 进行加权匹配，返回分数及命中词，因此检索结果稳定且可解释。知识资源在应用启动时从 classpath 加载并完成领域一致性、ID 唯一性及内容完整性校验，后续查询只读取不可变内存快照。
+`KnowledgeRetriever` 使用确定性加权检索。查询保留原文，通过 NFKC、大小写、标点和空白归一化，并使用受控的中英文术语及缩写映射。排序优先考虑主题、别名和关键点，标签与前置知识权重较低，通用词过滤后只累计至多三条不同的证据。结果附带命中字段、匹配类型、术语和分值。同分依次按领域、阶段、主题和 ID 排序。知识资源在应用启动时从 classpath 加载并校验，查询只读取不可变内存快照。
 
 Learning Path 已接入知识检索增强：后端从 `requirement`、`currentLevel`、`targetLevel` 和 `preferences` 构造查询，通过确定性规则选择 Java Backend、AI Application 或跨知识包检索，取得最多 8 个结果。随后只保留主题、阶段、难度、前置知识、学习目标、关键点和命中词，组装为有长度上限的 `Retrieved Knowledge Context`；检索分数、别名和标签不会进入 Prompt。
 
@@ -121,16 +121,17 @@ flowchart LR
 - C-1：`Structured Local Knowledge + Deterministic Retrieval`
 - C-2：`Retrieval + Context Augmentation + LLM Generation`
 - C-3：`Offline Retrieval Evaluation`，覆盖 Hit@K、Precision@K、Recall@K 和 MRR@K
+- C-4：`Retrieval Quality Optimization`，加入查询归一化、同义词匹配、字段加权及可解释的排序理由
 
-C-3 使用 30 条固定评估案例（12 条 Java Backend、18 条 AI Application），在 K=3、5、8 下重复运行真实 `KnowledgeRetriever`。当前基线如下：
+C-4 沿用 C-3 的 30 条固定案例（12 条 Java Backend、18 条 AI Application）。下表显示整体指标从 C-3 到 C-4 的变化。
 
 | K | Hit@K | Precision@K | Recall@K | MRR@K |
 |---:|---:|---:|---:|---:|
-| 3 | 0.5667 | 0.3333 | 0.4861 | 0.5111 |
-| 5 | 0.5667 | 0.2861 | 0.4861 | 0.5111 |
-| 8 | 0.5667 | 0.2711 | 0.4861 | 0.5111 |
+| 3 | 0.5667 → 0.8333 | 0.3333 → 0.4722 | 0.4861 → 0.7806 | 0.5111 → 0.7500 |
+| 5 | 0.5667 → 0.8333 | 0.2861 → 0.4089 | 0.4861 → 0.8083 | 0.5111 → 0.7500 |
+| 8 | 0.5667 → 0.8333 | 0.2711 → 0.3872 | 0.4861 → 0.8167 | 0.5111 → 0.7500 |
 
-评估器同时输出低召回案例的 query、预期知识 ID、实际结果和缺失 ID，便于后续分析词面检索无法覆盖的自然语言改写。该评估属于 **retrieval-level offline evaluation**，只衡量知识召回与排序；它不是 LLM answer quality evaluation，也不是 RAGAS、Faithfulness 或最终回答正确性评估。
+Top-8 仍有五条查询完全漏召回，主要涉及口语表达和知识库术语之间的差异。宽泛查询也可能被同一主题的多条结果占据。评估使用固定案例的领域标签，指标衡量知识召回和排序，最终生成质量需要另行验证。分领域结果、复跑命令和逐案例归因见 [C-4 检索评估与失败案例](docs/rag-retrieval-c4.md)。
 
 ## 计划时长与真实时长
 

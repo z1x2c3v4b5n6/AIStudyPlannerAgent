@@ -48,4 +48,12 @@ class LearningPathKnowledgeQueryBuilderTest {
                 () -> assertNull(builder.build(mixed).domain()),
                 () -> assertNull(builder.build(uncertain).domain()));
     }
+
+    @Test
+    void domainDetectionUsesNormalizedTermsAndWordBoundaries() {
+        assertEquals(KnowledgeDomain.AI_APPLICATION, builder.detectDomain("学习检索增强生成"));
+        assertEquals(KnowledgeDomain.JAVA_BACKEND, builder.detectDomain("Ｓｐｒｉｎｇ-Boot 自动配置"));
+        assertNull(builder.detectDomain("JavaScript passenger"));
+        assertNull(builder.detectDomain("用 Java 做 Retrieval-Augmented Generation"));
+    }
 }
