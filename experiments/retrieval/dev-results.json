@@ -1,0 +1,1302 @@
+{
+  "config": {
+    "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+    "artifact": "onnx/model_quint8_avx2.onnx",
+    "dimension": 384,
+    "maxLength": 128,
+    "rrfK": 60,
+    "keywordWeight": 1.0,
+    "semanticWeight": 1.0,
+    "candidateLimit": 20,
+    "semanticThreshold": 0.3,
+    "threads": 1
+  },
+  "split": "dev",
+  "summary": {
+    "keyword": {
+      "dev": {
+        "3": {
+          "hit": 0.6666666666666666,
+          "precision": 0.4166666666666667,
+          "recall": 0.5833333333333334,
+          "mrr": 0.5833333333333334,
+          "positiveCount": 6,
+          "negativeCount": 2,
+          "negativeReturnRate": 0.0,
+          "multiTopicCoverage": 0.75
+        },
+        "8": {
+          "hit": 0.6666666666666666,
+          "precision": 0.38888888888888884,
+          "recall": 0.5833333333333334,
+          "mrr": 0.5833333333333334,
+          "positiveCount": 6,
+          "negativeCount": 2,
+          "negativeReturnRate": 0.0,
+          "multiTopicCoverage": 0.75
+        }
+      },
+      "latencyMs": {
+        "p50": 2.623324,
+        "p95": 4.93500855
+      }
+    },
+    "semantic": {
+      "dev": {
+        "3": {
+          "hit": 0.5,
+          "precision": 0.2222222222222222,
+          "recall": 0.4166666666666667,
+          "mrr": 0.4166666666666667,
+          "positiveCount": 6,
+          "negativeCount": 2,
+          "negativeReturnRate": 0.5,
+          "multiTopicCoverage": 0.75
+        },
+        "8": {
+          "hit": 0.5,
+          "precision": 0.09722222222222221,
+          "recall": 0.4166666666666667,
+          "mrr": 0.4166666666666667,
+          "positiveCount": 6,
+          "negativeCount": 2,
+          "negativeReturnRate": 0.5,
+          "multiTopicCoverage": 0.75
+        }
+      },
+      "latencyMs": {
+        "p50": 4.771394000016471,
+        "p95": 7.725705800004333
+      }
+    },
+    "hybrid": {
+      "dev": {
+        "3": {
+          "hit": 0.6666666666666666,
+          "precision": 0.27777777777777773,
+          "recall": 0.5833333333333334,
+          "mrr": 0.5833333333333334,
+          "positiveCount": 6,
+          "negativeCount": 2,
+          "negativeReturnRate": 0.5,
+          "multiTopicCoverage": 0.75
+        },
+        "8": {
+          "hit": 0.6666666666666666,
+          "precision": 0.11011904761904762,
+          "recall": 0.5833333333333334,
+          "mrr": 0.5833333333333334,
+          "positiveCount": 6,
+          "negativeCount": 2,
+          "negativeReturnRate": 0.5,
+          "multiTopicCoverage": 0.75
+        }
+      },
+      "latencyMs": {
+        "p50": 7.847349000008097,
+        "p95": 12.108465199960037
+      }
+    }
+  },
+  "cost": {
+    "modelLoadSeconds": 2.816390590000026,
+    "indexSeconds": 1.602588093999998,
+    "cacheHit": false,
+    "cacheBytes": 79213,
+    "vectorBytes": 84480,
+    "modelBytes": 118453870
+  },
+  "regressions": {
+    "keyword": {
+      "3": [],
+      "8": []
+    },
+    "semantic": {
+      "3": [
+        "dev-08"
+      ],
+      "8": [
+        "dev-08"
+      ]
+    },
+    "hybrid": {
+      "3": [],
+      "8": []
+    }
+  },
+  "rows": {
+    "keyword": [
+      {
+        "id": "dev-01",
+        "query": "Java线程池满了以后还有任务进来会发生什么",
+        "relevantIds": [
+          "java-thread-pool"
+        ],
+        "split": "dev",
+        "domain": "JAVA_BACKEND",
+        "category": "intent",
+        "ids": [
+          "java-thread-pool",
+          "java-thread",
+          "java-completable-future"
+        ],
+        "scores": [
+          [
+            "java-thread-pool",
+            66
+          ],
+          [
+            "java-thread",
+            37
+          ],
+          [
+            "java-completable-future",
+            6
+          ]
+        ]
+      },
+      {
+        "id": "dev-02",
+        "query": "希望回复严格遵守 JSON Schema",
+        "relevantIds": [
+          "llm-structured-output",
+          "ai-output-validation"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "mixed",
+        "ids": [
+          "llm-structured-output",
+          "ai-output-validation",
+          "ai-tool-function-calling",
+          "prompt-json-output"
+        ],
+        "scores": [
+          [
+            "llm-structured-output",
+            30
+          ],
+          [
+            "ai-output-validation",
+            17
+          ],
+          [
+            "ai-tool-function-calling",
+            9
+          ],
+          [
+            "prompt-json-output",
+            8
+          ]
+        ]
+      },
+      {
+        "id": "dev-03",
+        "query": "查到十篇文章以后再找出最相关的三篇",
+        "relevantIds": [
+          "rag-rerank"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "intent",
+        "ids": [],
+        "scores": []
+      },
+      {
+        "id": "dev-04",
+        "query": "怎么避免自动执行的程序一直循环下去",
+        "relevantIds": [
+          "agent-workflow"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "intent",
+        "ids": [],
+        "scores": []
+      },
+      {
+        "id": "dev-05",
+        "query": "今天杭州下雨吗",
+        "relevantIds": [],
+        "split": "dev",
+        "domain": null,
+        "category": "unrelated",
+        "ids": [],
+        "scores": []
+      },
+      {
+        "id": "dev-06",
+        "query": "写完代码以后怎么申请调休",
+        "relevantIds": [],
+        "split": "dev",
+        "domain": null,
+        "category": "low-relevance",
+        "ids": [],
+        "scores": []
+      },
+      {
+        "id": "dev-07",
+        "query": "collection iterator 和去重容器一起复习",
+        "relevantIds": [
+          "java-iterator-collections",
+          "java-set-hashset"
+        ],
+        "split": "dev",
+        "domain": "JAVA_BACKEND",
+        "category": "multi",
+        "ids": [
+          "java-collection-overview",
+          "java-iterator-collections"
+        ],
+        "scores": [
+          [
+            "java-collection-overview",
+            30
+          ],
+          [
+            "java-iterator-collections",
+            30
+          ]
+        ]
+      },
+      {
+        "id": "dev-08",
+        "query": "用Java接入模型时如何处理超时和自动重试",
+        "relevantIds": [
+          "ai-retry-fallback"
+        ],
+        "split": "dev",
+        "domain": null,
+        "category": "cross-domain",
+        "ids": [
+          "ai-retry-fallback"
+        ],
+        "scores": [
+          [
+            "ai-retry-fallback",
+            48
+          ]
+        ]
+      }
+    ],
+    "semantic": [
+      {
+        "id": "dev-01",
+        "query": "Java线程池满了以后还有任务进来会发生什么",
+        "relevantIds": [
+          "java-thread-pool"
+        ],
+        "split": "dev",
+        "domain": "JAVA_BACKEND",
+        "category": "intent",
+        "ids": [
+          "java-thread-pool",
+          "java-completable-future",
+          "java-thread",
+          "java-synchronized",
+          "jvm-memory",
+          "spring-transaction",
+          "jvm-class-loading",
+          "java-juc-tools"
+        ],
+        "scores": [
+          [
+            "java-thread-pool",
+            0.6184618473052979
+          ],
+          [
+            "java-completable-future",
+            0.6057398319244385
+          ],
+          [
+            "java-thread",
+            0.5894958972930908
+          ],
+          [
+            "java-synchronized",
+            0.5647444128990173
+          ],
+          [
+            "jvm-memory",
+            0.5576379895210266
+          ],
+          [
+            "spring-transaction",
+            0.5045473575592041
+          ],
+          [
+            "jvm-class-loading",
+            0.4959315359592438
+          ],
+          [
+            "java-juc-tools",
+            0.4553350806236267
+          ]
+        ]
+      },
+      {
+        "id": "dev-02",
+        "query": "希望回复严格遵守 JSON Schema",
+        "relevantIds": [
+          "llm-structured-output",
+          "ai-output-validation"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "mixed",
+        "ids": [
+          "prompt-json-output",
+          "ai-output-validation",
+          "llm-structured-output",
+          "agent-human-loop",
+          "ai-retry-fallback",
+          "rag-rerank"
+        ],
+        "scores": [
+          [
+            "prompt-json-output",
+            0.6839817762374878
+          ],
+          [
+            "ai-output-validation",
+            0.5287226438522339
+          ],
+          [
+            "llm-structured-output",
+            0.46436572074890137
+          ],
+          [
+            "agent-human-loop",
+            0.35120660066604614
+          ],
+          [
+            "ai-retry-fallback",
+            0.3094196021556854
+          ],
+          [
+            "rag-rerank",
+            0.30470094084739685
+          ]
+        ]
+      },
+      {
+        "id": "dev-03",
+        "query": "查到十篇文章以后再找出最相关的三篇",
+        "relevantIds": [
+          "rag-rerank"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "intent",
+        "ids": [],
+        "scores": []
+      },
+      {
+        "id": "dev-04",
+        "query": "怎么避免自动执行的程序一直循环下去",
+        "relevantIds": [
+          "agent-workflow"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "intent",
+        "ids": [
+          "ai-retry-fallback",
+          "prompt-few-shot",
+          "agent-replanning",
+          "prompt-constraints",
+          "agent-human-loop"
+        ],
+        "scores": [
+          [
+            "ai-retry-fallback",
+            0.44133004546165466
+          ],
+          [
+            "prompt-few-shot",
+            0.40380963683128357
+          ],
+          [
+            "agent-replanning",
+            0.3963068723678589
+          ],
+          [
+            "prompt-constraints",
+            0.3769547641277313
+          ],
+          [
+            "agent-human-loop",
+            0.36143118143081665
+          ]
+        ]
+      },
+      {
+        "id": "dev-05",
+        "query": "今天杭州下雨吗",
+        "relevantIds": [],
+        "split": "dev",
+        "domain": null,
+        "category": "unrelated",
+        "ids": [],
+        "scores": []
+      },
+      {
+        "id": "dev-06",
+        "query": "写完代码以后怎么申请调休",
+        "relevantIds": [],
+        "split": "dev",
+        "domain": null,
+        "category": "low-relevance",
+        "ids": [
+          "java-thread-pool",
+          "java-juc-tools",
+          "java-thread",
+          "java-synchronized",
+          "java-exceptions",
+          "spring-transaction",
+          "java-completable-future",
+          "spring-aop"
+        ],
+        "scores": [
+          [
+            "java-thread-pool",
+            0.4577271342277527
+          ],
+          [
+            "java-juc-tools",
+            0.446236252784729
+          ],
+          [
+            "java-thread",
+            0.40207645297050476
+          ],
+          [
+            "java-synchronized",
+            0.3903427720069885
+          ],
+          [
+            "java-exceptions",
+            0.3515322506427765
+          ],
+          [
+            "spring-transaction",
+            0.3484486937522888
+          ],
+          [
+            "java-completable-future",
+            0.3382386565208435
+          ],
+          [
+            "spring-aop",
+            0.3378431797027588
+          ]
+        ]
+      },
+      {
+        "id": "dev-07",
+        "query": "collection iterator 和去重容器一起复习",
+        "relevantIds": [
+          "java-iterator-collections",
+          "java-set-hashset"
+        ],
+        "split": "dev",
+        "domain": "JAVA_BACKEND",
+        "category": "multi",
+        "ids": [
+          "java-iterator-collections",
+          "java-collection-overview",
+          "java-arraylist",
+          "java-thread-pool",
+          "jvm-gc",
+          "java-completable-future",
+          "java-annotations-reflection",
+          "java-linkedlist"
+        ],
+        "scores": [
+          [
+            "java-iterator-collections",
+            0.779965877532959
+          ],
+          [
+            "java-collection-overview",
+            0.5212774276733398
+          ],
+          [
+            "java-arraylist",
+            0.4657481014728546
+          ],
+          [
+            "java-thread-pool",
+            0.4245977997779846
+          ],
+          [
+            "jvm-gc",
+            0.41114258766174316
+          ],
+          [
+            "java-completable-future",
+            0.40632107853889465
+          ],
+          [
+            "java-annotations-reflection",
+            0.39961957931518555
+          ],
+          [
+            "java-linkedlist",
+            0.3818814158439636
+          ]
+        ]
+      },
+      {
+        "id": "dev-08",
+        "query": "用Java接入模型时如何处理超时和自动重试",
+        "relevantIds": [
+          "ai-retry-fallback"
+        ],
+        "split": "dev",
+        "domain": null,
+        "category": "cross-domain",
+        "ids": [
+          "java-thread",
+          "java-synchronized",
+          "jvm-class-loading",
+          "jvm-memory",
+          "java-completable-future",
+          "java-annotations-reflection",
+          "java-thread-pool",
+          "java-juc-tools"
+        ],
+        "scores": [
+          [
+            "java-thread",
+            0.6152095794677734
+          ],
+          [
+            "java-synchronized",
+            0.5745388269424438
+          ],
+          [
+            "jvm-class-loading",
+            0.5721920132637024
+          ],
+          [
+            "jvm-memory",
+            0.5517378449440002
+          ],
+          [
+            "java-completable-future",
+            0.5379027128219604
+          ],
+          [
+            "java-annotations-reflection",
+            0.5106725692749023
+          ],
+          [
+            "java-thread-pool",
+            0.4959256649017334
+          ],
+          [
+            "java-juc-tools",
+            0.48041832447052
+          ]
+        ]
+      }
+    ],
+    "hybrid": [
+      {
+        "id": "dev-01",
+        "query": "Java线程池满了以后还有任务进来会发生什么",
+        "relevantIds": [
+          "java-thread-pool"
+        ],
+        "split": "dev",
+        "domain": "JAVA_BACKEND",
+        "category": "intent",
+        "ids": [
+          "java-thread-pool",
+          "java-completable-future",
+          "java-thread",
+          "java-synchronized",
+          "jvm-memory",
+          "spring-transaction",
+          "jvm-class-loading",
+          "java-juc-tools"
+        ],
+        "scores": [
+          [
+            "java-thread-pool",
+            0.03278688524590164
+          ],
+          [
+            "java-completable-future",
+            0.03200204813108039
+          ],
+          [
+            "java-thread",
+            0.03200204813108039
+          ],
+          [
+            "java-synchronized",
+            0.015625
+          ],
+          [
+            "jvm-memory",
+            0.015384615384615385
+          ],
+          [
+            "spring-transaction",
+            0.015151515151515152
+          ],
+          [
+            "jvm-class-loading",
+            0.014925373134328358
+          ],
+          [
+            "java-juc-tools",
+            0.014705882352941176
+          ]
+        ],
+        "evidence": {
+          "java-thread-pool": [
+            {
+              "source": "keyword",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            },
+            {
+              "source": "semantic",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            }
+          ],
+          "java-completable-future": [
+            {
+              "source": "keyword",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            },
+            {
+              "source": "semantic",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            }
+          ],
+          "java-thread": [
+            {
+              "source": "keyword",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            },
+            {
+              "source": "semantic",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            }
+          ],
+          "java-synchronized": [
+            {
+              "source": "semantic",
+              "rank": 4,
+              "contribution": 0.015625
+            }
+          ],
+          "jvm-memory": [
+            {
+              "source": "semantic",
+              "rank": 5,
+              "contribution": 0.015384615384615385
+            }
+          ],
+          "spring-transaction": [
+            {
+              "source": "semantic",
+              "rank": 6,
+              "contribution": 0.015151515151515152
+            }
+          ],
+          "jvm-class-loading": [
+            {
+              "source": "semantic",
+              "rank": 7,
+              "contribution": 0.014925373134328358
+            }
+          ],
+          "java-juc-tools": [
+            {
+              "source": "semantic",
+              "rank": 8,
+              "contribution": 0.014705882352941176
+            }
+          ]
+        }
+      },
+      {
+        "id": "dev-02",
+        "query": "希望回复严格遵守 JSON Schema",
+        "relevantIds": [
+          "llm-structured-output",
+          "ai-output-validation"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "mixed",
+        "ids": [
+          "llm-structured-output",
+          "ai-output-validation",
+          "prompt-json-output",
+          "ai-tool-function-calling",
+          "agent-human-loop",
+          "ai-retry-fallback",
+          "rag-rerank"
+        ],
+        "scores": [
+          [
+            "llm-structured-output",
+            0.032266458495966696
+          ],
+          [
+            "ai-output-validation",
+            0.03225806451612903
+          ],
+          [
+            "prompt-json-output",
+            0.032018442622950824
+          ],
+          [
+            "ai-tool-function-calling",
+            0.015873015873015872
+          ],
+          [
+            "agent-human-loop",
+            0.015625
+          ],
+          [
+            "ai-retry-fallback",
+            0.015384615384615385
+          ],
+          [
+            "rag-rerank",
+            0.015151515151515152
+          ]
+        ],
+        "evidence": {
+          "llm-structured-output": [
+            {
+              "source": "keyword",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            },
+            {
+              "source": "semantic",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            }
+          ],
+          "ai-output-validation": [
+            {
+              "source": "keyword",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            },
+            {
+              "source": "semantic",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            }
+          ],
+          "prompt-json-output": [
+            {
+              "source": "keyword",
+              "rank": 4,
+              "contribution": 0.015625
+            },
+            {
+              "source": "semantic",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            }
+          ],
+          "ai-tool-function-calling": [
+            {
+              "source": "keyword",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            }
+          ],
+          "agent-human-loop": [
+            {
+              "source": "semantic",
+              "rank": 4,
+              "contribution": 0.015625
+            }
+          ],
+          "ai-retry-fallback": [
+            {
+              "source": "semantic",
+              "rank": 5,
+              "contribution": 0.015384615384615385
+            }
+          ],
+          "rag-rerank": [
+            {
+              "source": "semantic",
+              "rank": 6,
+              "contribution": 0.015151515151515152
+            }
+          ]
+        }
+      },
+      {
+        "id": "dev-03",
+        "query": "查到十篇文章以后再找出最相关的三篇",
+        "relevantIds": [
+          "rag-rerank"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "intent",
+        "ids": [],
+        "scores": [],
+        "evidence": {}
+      },
+      {
+        "id": "dev-04",
+        "query": "怎么避免自动执行的程序一直循环下去",
+        "relevantIds": [
+          "agent-workflow"
+        ],
+        "split": "dev",
+        "domain": "AI_APPLICATION",
+        "category": "intent",
+        "ids": [
+          "ai-retry-fallback",
+          "prompt-few-shot",
+          "agent-replanning",
+          "prompt-constraints",
+          "agent-human-loop"
+        ],
+        "scores": [
+          [
+            "ai-retry-fallback",
+            0.01639344262295082
+          ],
+          [
+            "prompt-few-shot",
+            0.016129032258064516
+          ],
+          [
+            "agent-replanning",
+            0.015873015873015872
+          ],
+          [
+            "prompt-constraints",
+            0.015625
+          ],
+          [
+            "agent-human-loop",
+            0.015384615384615385
+          ]
+        ],
+        "evidence": {
+          "ai-retry-fallback": [
+            {
+              "source": "semantic",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            }
+          ],
+          "prompt-few-shot": [
+            {
+              "source": "semantic",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            }
+          ],
+          "agent-replanning": [
+            {
+              "source": "semantic",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            }
+          ],
+          "prompt-constraints": [
+            {
+              "source": "semantic",
+              "rank": 4,
+              "contribution": 0.015625
+            }
+          ],
+          "agent-human-loop": [
+            {
+              "source": "semantic",
+              "rank": 5,
+              "contribution": 0.015384615384615385
+            }
+          ]
+        }
+      },
+      {
+        "id": "dev-05",
+        "query": "今天杭州下雨吗",
+        "relevantIds": [],
+        "split": "dev",
+        "domain": null,
+        "category": "unrelated",
+        "ids": [],
+        "scores": [],
+        "evidence": {}
+      },
+      {
+        "id": "dev-06",
+        "query": "写完代码以后怎么申请调休",
+        "relevantIds": [],
+        "split": "dev",
+        "domain": null,
+        "category": "low-relevance",
+        "ids": [
+          "java-thread-pool",
+          "java-juc-tools",
+          "java-thread",
+          "java-synchronized",
+          "java-exceptions",
+          "spring-transaction",
+          "java-completable-future",
+          "spring-aop"
+        ],
+        "scores": [
+          [
+            "java-thread-pool",
+            0.01639344262295082
+          ],
+          [
+            "java-juc-tools",
+            0.016129032258064516
+          ],
+          [
+            "java-thread",
+            0.015873015873015872
+          ],
+          [
+            "java-synchronized",
+            0.015625
+          ],
+          [
+            "java-exceptions",
+            0.015384615384615385
+          ],
+          [
+            "spring-transaction",
+            0.015151515151515152
+          ],
+          [
+            "java-completable-future",
+            0.014925373134328358
+          ],
+          [
+            "spring-aop",
+            0.014705882352941176
+          ]
+        ],
+        "evidence": {
+          "java-thread-pool": [
+            {
+              "source": "semantic",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            }
+          ],
+          "java-juc-tools": [
+            {
+              "source": "semantic",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            }
+          ],
+          "java-thread": [
+            {
+              "source": "semantic",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            }
+          ],
+          "java-synchronized": [
+            {
+              "source": "semantic",
+              "rank": 4,
+              "contribution": 0.015625
+            }
+          ],
+          "java-exceptions": [
+            {
+              "source": "semantic",
+              "rank": 5,
+              "contribution": 0.015384615384615385
+            }
+          ],
+          "spring-transaction": [
+            {
+              "source": "semantic",
+              "rank": 6,
+              "contribution": 0.015151515151515152
+            }
+          ],
+          "java-completable-future": [
+            {
+              "source": "semantic",
+              "rank": 7,
+              "contribution": 0.014925373134328358
+            }
+          ],
+          "spring-aop": [
+            {
+              "source": "semantic",
+              "rank": 8,
+              "contribution": 0.014705882352941176
+            }
+          ]
+        }
+      },
+      {
+        "id": "dev-07",
+        "query": "collection iterator 和去重容器一起复习",
+        "relevantIds": [
+          "java-iterator-collections",
+          "java-set-hashset"
+        ],
+        "split": "dev",
+        "domain": "JAVA_BACKEND",
+        "category": "multi",
+        "ids": [
+          "java-collection-overview",
+          "java-iterator-collections",
+          "java-arraylist",
+          "java-thread-pool",
+          "jvm-gc",
+          "java-completable-future",
+          "java-annotations-reflection",
+          "java-linkedlist"
+        ],
+        "scores": [
+          [
+            "java-collection-overview",
+            0.03252247488101534
+          ],
+          [
+            "java-iterator-collections",
+            0.03252247488101534
+          ],
+          [
+            "java-arraylist",
+            0.015873015873015872
+          ],
+          [
+            "java-thread-pool",
+            0.015625
+          ],
+          [
+            "jvm-gc",
+            0.015384615384615385
+          ],
+          [
+            "java-completable-future",
+            0.015151515151515152
+          ],
+          [
+            "java-annotations-reflection",
+            0.014925373134328358
+          ],
+          [
+            "java-linkedlist",
+            0.014705882352941176
+          ]
+        ],
+        "evidence": {
+          "java-collection-overview": [
+            {
+              "source": "keyword",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            },
+            {
+              "source": "semantic",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            }
+          ],
+          "java-iterator-collections": [
+            {
+              "source": "keyword",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            },
+            {
+              "source": "semantic",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            }
+          ],
+          "java-arraylist": [
+            {
+              "source": "semantic",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            }
+          ],
+          "java-thread-pool": [
+            {
+              "source": "semantic",
+              "rank": 4,
+              "contribution": 0.015625
+            }
+          ],
+          "jvm-gc": [
+            {
+              "source": "semantic",
+              "rank": 5,
+              "contribution": 0.015384615384615385
+            }
+          ],
+          "java-completable-future": [
+            {
+              "source": "semantic",
+              "rank": 6,
+              "contribution": 0.015151515151515152
+            }
+          ],
+          "java-annotations-reflection": [
+            {
+              "source": "semantic",
+              "rank": 7,
+              "contribution": 0.014925373134328358
+            }
+          ],
+          "java-linkedlist": [
+            {
+              "source": "semantic",
+              "rank": 8,
+              "contribution": 0.014705882352941176
+            }
+          ]
+        }
+      },
+      {
+        "id": "dev-08",
+        "query": "用Java接入模型时如何处理超时和自动重试",
+        "relevantIds": [
+          "ai-retry-fallback"
+        ],
+        "split": "dev",
+        "domain": null,
+        "category": "cross-domain",
+        "ids": [
+          "ai-retry-fallback",
+          "java-thread",
+          "java-synchronized",
+          "jvm-class-loading",
+          "jvm-memory",
+          "java-completable-future",
+          "java-annotations-reflection",
+          "java-thread-pool"
+        ],
+        "scores": [
+          [
+            "ai-retry-fallback",
+            0.02938045560996381
+          ],
+          [
+            "java-thread",
+            0.01639344262295082
+          ],
+          [
+            "java-synchronized",
+            0.016129032258064516
+          ],
+          [
+            "jvm-class-loading",
+            0.015873015873015872
+          ],
+          [
+            "jvm-memory",
+            0.015625
+          ],
+          [
+            "java-completable-future",
+            0.015384615384615385
+          ],
+          [
+            "java-annotations-reflection",
+            0.015151515151515152
+          ],
+          [
+            "java-thread-pool",
+            0.014925373134328358
+          ]
+        ],
+        "evidence": {
+          "ai-retry-fallback": [
+            {
+              "source": "keyword",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            },
+            {
+              "source": "semantic",
+              "rank": 17,
+              "contribution": 0.012987012987012988
+            }
+          ],
+          "java-thread": [
+            {
+              "source": "semantic",
+              "rank": 1,
+              "contribution": 0.01639344262295082
+            }
+          ],
+          "java-synchronized": [
+            {
+              "source": "semantic",
+              "rank": 2,
+              "contribution": 0.016129032258064516
+            }
+          ],
+          "jvm-class-loading": [
+            {
+              "source": "semantic",
+              "rank": 3,
+              "contribution": 0.015873015873015872
+            }
+          ],
+          "jvm-memory": [
+            {
+              "source": "semantic",
+              "rank": 4,
+              "contribution": 0.015625
+            }
+          ],
+          "java-completable-future": [
+            {
+              "source": "semantic",
+              "rank": 5,
+              "contribution": 0.015384615384615385
+            }
+          ],
+          "java-annotations-reflection": [
+            {
+              "source": "semantic",
+              "rank": 6,
+              "contribution": 0.015151515151515152
+            }
+          ],
+          "java-thread-pool": [
+            {
+              "source": "semantic",
+              "rank": 7,
+              "contribution": 0.014925373134328358
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

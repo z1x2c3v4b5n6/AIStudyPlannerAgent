@@ -335,3 +335,9 @@ GitHub Actions 在 push 到 `main` 和针对 `main` 的 Pull Request 上并行�
 - 增加浏览器端端到端测试和发布监控。
 - 根据真实使用需求评估 SSE 和受控工具调用。
 - 在不削弱数据隔离与确认机制的前提下扩展部署能力。
+
+### C-5 语义与混合检索实验
+
+独立的本地CPU实验对比C-4关键词、多语言MiniLM语义检索和可配置RRF混合检索。固定原30条案例，新增8条dev和20条final，记录Top-3/Top-8质量、误召回、退化和延迟。final正例的Hybrid Hit@3从0.5625升至0.6875，负例返回率从0升至0.5，因此继续以C-4作为默认检索实现。
+
+部署及复现见 [实验说明](experiments/retrieval/README.md)，全部指标和失败分析见 [C-5评估报告](docs/rag-retrieval-c5.md)。

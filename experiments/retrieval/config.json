@@ -1,0 +1,13 @@
+{
+  "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+  "artifact": "onnx/model_quint8_avx2.onnx",
+  "dimension": 384,
+  "maxLength": 128,
+  "rrfK": 60,
+  "keywordWeight": 1.0,
+  "semanticWeight": 1.0,
+  "candidateLimit": 20,
+  "semanticThreshold": 0.3,
+  "threads": 1
+}

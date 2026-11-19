@@ -1,0 +1,279 @@
+[
+  {
+    "id": "dev-01",
+    "query": "Java线程池满了以后还有任务进来会发生什么",
+    "relevantIds": [
+      "java-thread-pool"
+    ],
+    "split": "dev",
+    "domain": "JAVA_BACKEND",
+    "category": "intent"
+  },
+  {
+    "id": "dev-02",
+    "query": "希望回复严格遵守 JSON Schema",
+    "relevantIds": [
+      "llm-structured-output",
+      "ai-output-validation"
+    ],
+    "split": "dev",
+    "domain": "AI_APPLICATION",
+    "category": "mixed"
+  },
+  {
+    "id": "dev-03",
+    "query": "查到十篇文章以后再找出最相关的三篇",
+    "relevantIds": [
+      "rag-rerank"
+    ],
+    "split": "dev",
+    "domain": "AI_APPLICATION",
+    "category": "intent"
+  },
+  {
+    "id": "dev-04",
+    "query": "怎么避免自动执行的程序一直循环下去",
+    "relevantIds": [
+      "agent-workflow"
+    ],
+    "split": "dev",
+    "domain": "AI_APPLICATION",
+    "category": "intent"
+  },
+  {
+    "id": "dev-05",
+    "query": "今天杭州下雨吗",
+    "relevantIds": [],
+    "split": "dev",
+    "domain": null,
+    "category": "unrelated"
+  },
+  {
+    "id": "dev-06",
+    "query": "写完代码以后怎么申请调休",
+    "relevantIds": [],
+    "split": "dev",
+    "domain": null,
+    "category": "low-relevance"
+  },
+  {
+    "id": "dev-07",
+    "query": "collection iterator 和去重容器一起复习",
+    "relevantIds": [
+      "java-iterator-collections",
+      "java-set-hashset"
+    ],
+    "split": "dev",
+    "domain": "JAVA_BACKEND",
+    "category": "multi"
+  },
+  {
+    "id": "dev-08",
+    "query": "用Java接入模型时如何处理超时和自动重试",
+    "relevantIds": [
+      "ai-retry-fallback"
+    ],
+    "split": "dev",
+    "domain": null,
+    "category": "cross-domain"
+  },
+  {
+    "id": "final-01",
+    "query": "数据库拿到的空Integer赋值给int为什么报错",
+    "relevantIds": [
+      "java-types-wrappers"
+    ],
+    "split": "final",
+    "domain": "JAVA_BACKEND",
+    "category": "intent"
+  },
+  {
+    "id": "final-02",
+    "query": "往列表遍历的时候删元素为什么会ConcurrentModificationException",
+    "relevantIds": [
+      "java-iterator-collections"
+    ],
+    "split": "final",
+    "domain": "JAVA_BACKEND",
+    "category": "intent"
+  },
+  {
+    "id": "final-03",
+    "query": "子类的方法在运行时被调用，这个现象怎么解释",
+    "relevantIds": [
+      "java-oop"
+    ],
+    "split": "final",
+    "domain": "JAVA_BACKEND",
+    "category": "intent"
+  },
+  {
+    "id": "final-04",
+    "query": "程序不停创建短命对象，怎么判断哪些对象还能活着",
+    "relevantIds": [
+      "jvm-gc"
+    ],
+    "split": "final",
+    "domain": "JAVA_BACKEND",
+    "category": "intent"
+  },
+  {
+    "id": "final-05",
+    "query": "为什么标了Transactional的方法在同一个类里调用却没回滚",
+    "relevantIds": [
+      "spring-transaction"
+    ],
+    "split": "final",
+    "domain": "JAVA_BACKEND",
+    "category": "intent"
+  },
+  {
+    "id": "final-06",
+    "query": "两个服务都要用一个对象，交给容器负责组装依赖",
+    "relevantIds": [
+      "spring-ioc"
+    ],
+    "split": "final",
+    "domain": "JAVA_BACKEND",
+    "category": "intent"
+  },
+  {
+    "id": "final-07",
+    "query": "用户输入说忽略之前的要求，system message该怎么防护",
+    "relevantIds": [
+      "prompt-system",
+      "prompt-constraints"
+    ],
+    "split": "final",
+    "domain": "AI_APPLICATION",
+    "category": "mixed"
+  },
+  {
+    "id": "final-08",
+    "query": "回答总是变花样，想调低temperature并固定输出字段",
+    "relevantIds": [
+      "llm-temperature",
+      "llm-structured-output"
+    ],
+    "split": "final",
+    "domain": "AI_APPLICATION",
+    "category": "multi"
+  },
+  {
+    "id": "final-09",
+    "query": "文档被截成小段后如何保留前后衔接的内容",
+    "relevantIds": [
+      "rag-document-chunk"
+    ],
+    "split": "final",
+    "domain": "AI_APPLICATION",
+    "category": "intent"
+  },
+  {
+    "id": "final-10",
+    "query": "模型给出了不存在的字段，后端要拒绝这份响应",
+    "relevantIds": [
+      "ai-output-validation"
+    ],
+    "split": "final",
+    "domain": "AI_APPLICATION",
+    "category": "intent"
+  },
+  {
+    "id": "final-11",
+    "query": "机器人执行失败后怎么修正剩下的步骤",
+    "relevantIds": [
+      "agent-replanning"
+    ],
+    "split": "final",
+    "domain": "AI_APPLICATION",
+    "category": "intent"
+  },
+  {
+    "id": "final-12",
+    "query": "聊天助手如何同时保存本次对话和长期偏好",
+    "relevantIds": [
+      "agent-memory"
+    ],
+    "split": "final",
+    "domain": "AI_APPLICATION",
+    "category": "intent"
+  },
+  {
+    "id": "final-13",
+    "query": "给自动化程序删库权限之前需要审批和撤销机制",
+    "relevantIds": [
+      "agent-human-loop",
+      "ai-tool-function-calling"
+    ],
+    "split": "final",
+    "domain": null,
+    "category": "cross-domain"
+  },
+  {
+    "id": "final-14",
+    "query": "先理解线程池，再学习LLM请求的timeout重试策略",
+    "relevantIds": [
+      "java-thread-pool",
+      "ai-retry-fallback"
+    ],
+    "split": "final",
+    "domain": null,
+    "category": "cross-domain"
+  },
+  {
+    "id": "final-15",
+    "query": "JVM class loading和Spring自动配置怎么联系起来",
+    "relevantIds": [
+      "jvm-class-loading",
+      "spring-boot"
+    ],
+    "split": "final",
+    "domain": null,
+    "category": "mixed"
+  },
+  {
+    "id": "final-16",
+    "query": "从PDF切块到向量编码再到检索资料，需要哪些步骤",
+    "relevantIds": [
+      "rag-document-chunk",
+      "rag-embedding",
+      "rag-vector-retrieval"
+    ],
+    "split": "final",
+    "domain": null,
+    "category": "multi"
+  },
+  {
+    "id": "final-17",
+    "query": "红烧肉应该加多少糖",
+    "relevantIds": [],
+    "split": "final",
+    "domain": null,
+    "category": "unrelated"
+  },
+  {
+    "id": "final-18",
+    "query": "下周去东京的机票多少钱",
+    "relevantIds": [],
+    "split": "final",
+    "domain": null,
+    "category": "unrelated"
+  },
+  {
+    "id": "final-19",
+    "query": "怎样给Java岛旅游照片加滤镜",
+    "relevantIds": [],
+    "split": "final",
+    "domain": null,
+    "category": "low-relevance"
+  },
+  {
+    "id": "final-20",
+    "query": "足球比赛如何预测下一场首发名单",
+    "relevantIds": [],
+    "split": "final",
+    "domain": null,
+    "category": "unrelated"
+  }
+]
