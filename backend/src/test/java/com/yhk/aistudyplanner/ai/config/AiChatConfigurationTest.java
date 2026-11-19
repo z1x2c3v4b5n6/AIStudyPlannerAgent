@@ -3,6 +3,7 @@ package com.yhk.aistudyplanner.ai.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yhk.aistudyplanner.ai.gateway.DeepSeekPlanningGateway;
+import com.yhk.aistudyplanner.agent.AgentGateway;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -21,6 +22,7 @@ class AiChatConfigurationTest {
             context -> {
               assertThat(context).hasNotFailed();
               assertThat(context).doesNotHaveBean(ChatClient.class);
+              assertThat(context).doesNotHaveBean(AgentGateway.class);
             });
   }
 
@@ -32,6 +34,7 @@ class AiChatConfigurationTest {
             context -> {
               assertThat(context).hasNotFailed();
               assertThat(context).doesNotHaveBean(ChatClient.class);
+              assertThat(context).doesNotHaveBean(AgentGateway.class);
             });
   }
 
@@ -44,6 +47,7 @@ class AiChatConfigurationTest {
               assertThat(context).hasNotFailed();
               assertThat(context).hasSingleBean(ChatClient.class);
               assertThat(context).hasSingleBean(DeepSeekPlanningGateway.class);
+              assertThat(context).hasSingleBean(AgentGateway.class);
             });
   }
 

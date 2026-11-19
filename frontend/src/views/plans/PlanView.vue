@@ -6,6 +6,10 @@ import PlanDraftPanel from '../../components/plans/PlanDraftPanel.vue'
 import PlanHistoryTable from '../../components/plans/PlanHistoryTable.vue'
 import PlanDetailDrawer from '../../components/plans/PlanDetailDrawer.vue'
 import type { PlanDetail } from '../../types/plan'
+import { useAuthStore } from '../../stores/auth'
+import { takeAgentPlanDraft } from '../../utils/agentPlanDraft'
+
+const initialDraft = takeAgentPlanDraft(useAuthStore().user?.id)
 
 const history = ref<InstanceType<typeof PlanHistoryTable>>()
 const detail = ref<PlanDetail | null>(null)
@@ -62,7 +66,7 @@ onMounted(async () => {
     </div>
     <el-tabs v-model="activeTab" class="plan-workspace-tabs" @tab-change="handleTabChange">
       <el-tab-pane label="今日计划" name="today">
-        <PlanDraftPanel @confirmed="confirmed" />
+        <PlanDraftPanel :initial-draft="initialDraft" @confirmed="confirmed" />
       </el-tab-pane>
       <el-tab-pane label="历史计划" name="history" lazy>
         <div class="history-section-heading compact">

@@ -60,6 +60,19 @@ public class TaskService {
         return new PageResponse<>(result.getRecords().stream().map(TaskView::from).toList(), page, pageSize, result.getTotal());
     }
 
+    public PageResponse<TaskView> openTasks(long page, long pageSize, String title, boolean overdueOnly) {
+        long userId = sessionService.currentUserId();
+        var query = new LambdaQueryWrapper<StudyTask>()
+                .eq(StudyTask::getUserId, userId)
+                .in(StudyTask::getStatus, TaskStatus.TODO, TaskStatus.IN_PROGRESS)
+                .like(title != null && !title.isBlank(), StudyTask::getTitle, title)
+                .lt(overdueOnly, StudyTask::getDueAt, LocalDateTime.now(BUSINESS_ZONE))
+                .orderByAsc(StudyTask::getDueAt).orderByAsc(StudyTask::getId);
+        var result = taskMapper.selectPage(new Page<>(page, pageSize), query);
+        return new PageResponse<>(result.getRecords().stream().map(TaskView::from).toList(),
+                page, pageSize, result.getTotal());
+    }
+
     public TaskView get(long id) {
         return TaskView.from(requireOwned(id, sessionService.currentUserId()));
     }
@@ -93,6 +106,16 @@ public class TaskService {
         task.setUpdatedAt(now);
         taskMapper.insert(task);
         return TaskView.from(task);
+    }
+
+    @Transactional
+    public TaskView updateIfUnchanged(TaskView expected, TaskUpdateRequest request) {
+        long userId = sessionService.currentUserId();
+        var current = taskMapper.selectOwnedForUpdate(expected.id(), userId);
+        if (current == null || !TaskView.from(current).equals(expected)) {
+            throw new BusinessException(ErrorCode.AGENT_ACTION_CONFLICT);
+        }
+        return update(expected.id(), request);
     }
 
     @Transactional

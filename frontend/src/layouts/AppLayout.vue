@@ -14,6 +14,7 @@ document.documentElement.dataset.theme = themeMode.value
 
 const navItems = [
   { path: '/', label: '学习概览', icon: '▦' },
+  { path: '/agent', label: 'AI 助手', icon: '✦' },
   { path: '/subjects', label: '科目管理', icon: '▱' },
   { path: '/goals', label: '学习目标', icon: '◎' },
   { path: '/tasks', label: '学习任务', icon: '☑' },
