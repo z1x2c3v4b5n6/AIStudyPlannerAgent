@@ -345,3 +345,7 @@ GitHub Actions 在 push 到 `main` 和针对 `main` 的 Pull Request 上并行�
 ### C-6 Learning Path 生成质量评估
 
 生成质量评估通过真实生成服务回放 Baseline、C-4 RAG 与人工 Oracle。默认运行固定响应，输出结构合法率、业务通过率、主题覆盖、前置关系、空上下文通过率和逐案诊断。在 `backend` 中运行 `mvn -Dtest=GenerationEvaluationTest,GenerationRubricTest test`。评估规则、回放结果及可选 DeepSeek 运行方法见 [C-6 生成质量评估](docs/rag-generation-c6.md)。
+
+### C-7 AI 学习助手
+
+登录后打开「AI 助手」，可以查待办、学习统计和知识库，或提出任务创建、修改及学习计划草案。所有助手动作先显示预览，再由后端处理用户的确认或取消。确认后的日计划草案可带入每日计划页面编辑和保存。开发及演示流程见 [C-7 助手文档](docs/agent-c7.md)。

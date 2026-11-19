@@ -48,6 +48,18 @@ class TaskServiceTest {
     }
 
     @Test
+    void confirmationRejectsChangedOrUnownedTaskBeforeUpdating() {
+        var before = com.yhk.aistudyplanner.task.vo.TaskView.from(task(4L, 1L, TaskStatus.TODO));
+        when(mapper.selectOwnedForUpdate(4L, 1L))
+                .thenReturn(task(4L, 1L, TaskStatus.COMPLETED)).thenReturn(null);
+        for (int attempt = 0; attempt < 2; attempt++) {
+            assertEquals(ErrorCode.AGENT_ACTION_CONFLICT,
+                    assertThrows(BusinessException.class, () -> service.updateIfUnchanged(before, null)).getErrorCode());
+        }
+        verify(mapper, never()).update(isNull(), any());
+    }
+
+    @Test
     void rejectsAnotherUsersGoal() {
         doThrow(new BusinessException(ErrorCode.GOAL_ACCESS_DENIED)).when(goalService).requireOwned(9L, 1L);
         BusinessException exception = assertThrows(BusinessException.class, () -> service.create(createRequest(2L, 9L)));

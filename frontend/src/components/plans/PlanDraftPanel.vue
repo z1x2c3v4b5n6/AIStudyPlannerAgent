@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, toRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { planApi } from '../../api/plan'
 import type {
@@ -116,7 +116,7 @@ const scopeApplyHint = computed(() => {
 })
 
 function clone(value: PlanDraft) {
-  return structuredClone(value)
+  return structuredClone(toRaw(value))
 }
 
 function useExample(example: string) {

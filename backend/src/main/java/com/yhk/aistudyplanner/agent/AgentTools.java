@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yhk.aistudyplanner.common.exception.BusinessException;
+import com.yhk.aistudyplanner.common.response.PageResponse;
 import com.yhk.aistudyplanner.goal.service.GoalService;
 import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchRequest;
 import com.yhk.aistudyplanner.knowledge.service.KnowledgeRetriever;
@@ -18,6 +19,8 @@ import com.yhk.aistudyplanner.task.vo.TaskView;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import org.springframework.ai.tool.ToolCallback;
@@ -38,6 +41,15 @@ class AgentTools {
     record Result(Object data, List<TaskView> tasks) {
         Result(Object data) { this(data, List.of()); }
     }
+    record TaskSummary(Long id, Long subjectId, String title, String status, Integer priority,
+                       Integer estimatedMinutes, LocalDate plannedDate, LocalDateTime dueAt) {
+        static TaskSummary from(TaskView task) {
+            return new TaskSummary(task.id(), task.subjectId(), task.title(), task.status().name(), task.priority(),
+                    task.estimatedMinutes(), task.plannedDate(), task.dueAt());
+        }
+    }
+    record PathProgress(Long id, String title, String status, int totalItems, int completedItems,
+                        int skippedItems, double progress) {}
     record Tool<T>(String name, String description, Class<T> type, Function<T, Result> execute) {}
 
     private final Map<String, Tool<?>> tools = new LinkedHashMap<>();
@@ -58,13 +70,14 @@ class AgentTools {
         register("today_tasks", "查询某日的实际待办任务，默认今日，含顺延待办", DateArgs.class, args -> {
             var found = tasks.today(args.date());
             var shown = found.tasks().stream().limit(12).toList();
-            return new Result(Map.of("tasks", shown, "total", found.tasks().size(),
+            return new Result(Map.of("tasks", shown.stream().map(TaskSummary::from).toList(), "total", found.tasks().size(),
                     "totalEstimatedMinutes", found.totalEstimatedMinutes()), shown);
         });
         register("open_tasks", "查询未完成任务，支持按标题关键词搜索或仅查已过截止时间的任务", TaskFilter.class, args -> {
             var found = tasks.openTasks(args.page() == null ? 1 : args.page(), PAGE_SIZE,
                     args.title(), Boolean.TRUE.equals(args.overdueOnly()));
-            return new Result(found, found.list());
+            var summaries = found.list().stream().map(TaskSummary::from).toList();
+            return new Result(new PageResponse<>(summaries, found.page(), found.pageSize(), found.total()), found.list());
         });
         register("study_records", "分页查询我的学习记录，可传日期区间", Range.class,
                 args -> new Result(records.list(args.page() == null ? 1 : args.page(), PAGE_SIZE,
@@ -72,7 +85,12 @@ class AgentTools {
         register("study_statistics", "查询我的学习统计，可传日期区间", Range.class,
                 args -> new Result(statistics.summary(args.startDate(), args.endDate())));
         register("learning_paths", "分页查询我的学习路径，传id查询单条执行进度", Id.class,
-                args -> new Result(args.id() == null ? paths.list(1, PAGE_SIZE) : paths.get(args.id())));
+                args -> {
+                    if (args.id() == null) return new Result(paths.list(1, PAGE_SIZE));
+                    var path = paths.get(args.id());
+                    return new Result(new PathProgress(path.id(), path.title(), path.status().name(),
+                            path.totalItems(), path.completedItems(), path.skippedItems(), path.progress()));
+                });
         register("search_knowledge", "查询本地知识库，返回相关主题与知识点", Search.class,
                 args -> new Result(knowledge.search(new KnowledgeSearchRequest(args.query(), null, 4)).stream()
                         .map(hit -> Map.of("topic", hit.unit().topic(), "keyPoints", hit.unit().keyPoints())).toList()));
@@ -86,8 +104,9 @@ class AgentTools {
     String knownName(String name) { return tools.containsKey(name) ? name : "unknown"; }
 
     ToolCallback callback(Tool<?> tool) {
-        String schema = JsonSchemaGenerator.generateForType(tool.type());
-        var definition = ToolDefinition.builder().name(tool.name()).description(tool.description()).inputSchema(schema).build();
+        var schema = parse(JsonSchemaGenerator.generateForType(tool.type()));
+        schema.put("additionalProperties", false);
+        var definition = ToolDefinition.builder().name(tool.name()).description(tool.description()).inputSchema(schema.toString()).build();
         return new ToolCallback() {
             @Override public ToolDefinition getToolDefinition() { return definition; }
             @Override public String call(String ignored) { throw new IllegalStateException("Manual execution only"); }
@@ -116,6 +135,14 @@ class AgentTools {
     }
 
     <T> T bind(JsonNode arguments, Class<T> type) {
+        for (var field : type.getRecordComponents()) {
+            var value = arguments.path(field.getName());
+            if ((field.getType() == LocalDate.class || field.getType() == LocalTime.class
+                    || field.getType() == LocalDateTime.class)
+                    && !value.isMissingNode() && !value.isNull() && !value.isTextual()) {
+                throw new BusinessException(AGENT_TOOL_INVALID);
+            }
+        }
         try {
             T value = input.treeToValue(arguments, type);
             if (!validator.validate(value).isEmpty()) throw new BusinessException(AGENT_TOOL_INVALID);

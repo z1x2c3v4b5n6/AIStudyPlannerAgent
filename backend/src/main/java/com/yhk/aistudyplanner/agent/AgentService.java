@@ -157,7 +157,9 @@ class AgentService {
             throw new BusinessException(AGENT_LIMIT);
         }
         try {
-            return Objects.requireNonNull(future.get(budget, TimeUnit.NANOSECONDS));
+            var response = future.get(budget, TimeUnit.NANOSECONDS);
+            if (response == null) throw new BusinessException(AI_RESPONSE_EMPTY);
+            return response;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new BusinessException(AGENT_TIMEOUT);
