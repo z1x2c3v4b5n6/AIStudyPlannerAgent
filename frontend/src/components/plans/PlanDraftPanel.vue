@@ -31,6 +31,7 @@ const examples = [
   '帮我准备 Java 后端面试',
 ]
 
+const props = defineProps<{ initialDraft?: PlanDraft }>()
 const emit = defineEmits<{ confirmed: [plan: PlanDetail] }>()
 const naturalLanguage = ref('')
 const parsed = ref<NaturalLanguagePlanParseResult | null>(null)
@@ -47,8 +48,8 @@ const form = reactive({
 })
 const generationMode = ref<GenerationMode>('AI')
 const generationMeta = ref<GenerationMeta | null>(null)
-const draft = ref<PlanDraft | null>(null)
-const original = ref<PlanDraft | null>(null)
+const draft = ref<PlanDraft | null>(props.initialDraft ? clone(props.initialDraft) : null)
+const original = ref<PlanDraft | null>(props.initialDraft ? clone(props.initialDraft) : null)
 const generating = ref(false)
 const quickCreating = ref(false)
 const confirming = ref(false)
