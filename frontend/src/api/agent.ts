@@ -62,7 +62,7 @@ export interface WorkflowRun {
   input: string
   scenario: string
   revision: number
-  status: 'READY' | 'RUNNING' | 'PAUSED' | 'WAITING_APPROVAL' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'TIMED_OUT'
+  status: 'READY' | 'RUNNING' | 'PAUSED' | 'WAITING_INPUT' | 'WAITING_APPROVAL' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'TIMED_OUT'
   expiresAt: string
   nodes: WorkflowNode[]
 }
@@ -74,8 +74,10 @@ export const workflowApi = {
   start: (session: string, text: string) => http.post<ApiResponse<WorkflowRun>>(runs(session), { text }),
   get: (id: string) => http.get<ApiResponse<WorkflowRun>>(run(id)),
   advance: (id: string) => http.post<ApiResponse<WorkflowRun>>(`${run(id)}/advance`, undefined, { timeout: 100000 }),
-  decide: (id: string, digest: string, confirm: boolean) =>
-    http.post<ApiResponse<WorkflowRun>>(`${run(id)}/decision`, { digest, confirm }),
+  decide: (id: string, digest: string, confirm: boolean, strategy?: string) =>
+    http.post<ApiResponse<WorkflowRun>>(`${run(id)}/decision`, { digest, confirm, strategy }),
+  clarify: (id: string, dailyMinutes: number, subjectId: number | null) =>
+    http.post<ApiResponse<WorkflowRun>>(`${run(id)}/clarification`, { dailyMinutes, subjectId }),
   control: (id: string, command: 'PAUSE' | 'RESUME' | 'CANCEL') =>
     http.post<ApiResponse<WorkflowRun>>(`${run(id)}/control`, { command }),
 }

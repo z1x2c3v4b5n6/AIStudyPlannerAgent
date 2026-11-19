@@ -21,7 +21,8 @@ class AdaptiveController {
     }
     @GetMapping("/diagnostics")
     ApiResponse<java.util.List<LearningDiagnostics.Diagnostic>> diagnostics(@RequestParam(required=false) Integer days,
-            @RequestParam(required=false) Integer dailyMinutes) {
-        return ApiResponse.success(diagnostics.analyze(profiles.profile(null, null, days), dailyMinutes));
+            @RequestParam(required=false) Integer dailyMinutes, @RequestParam(required=false) LocalDate from,
+            @RequestParam(required=false) LocalDate to) {
+        return ApiResponse.success(diagnostics.analyze(profiles.profile(from, to, days), dailyMinutes));
     }
 }
