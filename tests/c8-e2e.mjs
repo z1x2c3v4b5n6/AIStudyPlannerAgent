@@ -161,9 +161,15 @@ const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'previ
 })
 let browser
 let completed = false
+let failureCategory = null
+let phase = 'service_start'
 async function ready(url) {
   for (let n = 0; n < 90; n++) {
-    try { await fetch(url); return } catch { await setTimeout(500) }
+    try {
+      const response=await fetch(url,{signal:AbortSignal.timeout(2500)})
+      if(response.status===(url.startsWith(api)?401:200)) return
+    } catch { /* Wait for the Spring or Vue listener. */ }
+    await setTimeout(500)
   }
   throw new Error(`Startup timed out at ${url}`)
 }
@@ -206,6 +212,7 @@ try {
   }
   await ready(api + '/auth/me')
   await ready(frontend)
+  phase = 'business_scenarios'
   const a = await account()
   const b = await account()
   backendEnv.APP_KNOWLEDGE_REVIEWERS = String(a.credentials.user.id)
@@ -335,7 +342,9 @@ try {
     report.push('C-12 live model: structured JSON, multi-tool read and user-approved update with duplicate receipt')
   }
 
+  phase = 'chromium_start'
   browser = await chromium.launch({ headless: true, executablePath: process.env.C8_CHROMIUM_PATH || undefined })
+  phase = 'business_and_browser_scenarios'
   const page = await browser.newPage()
   const pageErrors = []
   page.on('pageerror', error => pageErrors.push(error.message))
@@ -495,15 +504,20 @@ try {
   await verifyKnowledgeHub({a,b,account,request,page,frontend,report})
   if (!live) {
     await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
-    await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate})
+    if (process.env.C12_VERIFY_DB_FAULT==='true') await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate})
   }
   if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
   assert.deepEqual(pageErrors, [])
   completed = true
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
+} catch (error) {
+  failureCategory = phase==='chromium_start' ? 'CHROMIUM_START'
+    : phase==='service_start' ? 'SERVICE_READINESS'
+    : error instanceof assert.AssertionError ? 'BUSINESS_ASSERTION' : 'SCENARIO_RUNTIME'
+  throw error
 } finally {
   console.log(JSON.stringify({ dataset: 'c8-c12-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
-    status: completed ? 'PASS' : 'FAIL', passedChecks: report.length, report, providerTrace, budget: providerBudget?.summary(), billing: live ? 'use returned usage and account pricing' : 'zero' }))
+    status: completed ? 'PASS' : 'FAIL', failureCategory, commit: process.env.GITHUB_SHA ?? null, passedChecks: report.length, report, providerTrace, budget: providerBudget?.summary(), billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()
   preview.kill()

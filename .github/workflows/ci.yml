@@ -138,4 +138,6 @@ jobs:
             npx playwright install chromium
           fi
       - name: Run authenticated business and Chromium scenarios
+        env:
+          C12_VERIFY_DB_FAULT: "true"
         run: node tests/c8-e2e.mjs

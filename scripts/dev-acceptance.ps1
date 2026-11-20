@@ -34,6 +34,7 @@ $createdSchema=''
 $backend=$null
 $frontend=$null
 $savedUrl=$env:DB_URL
+$savedFault=$env:C12_VERIFY_DB_FAULT
 try {
     $javaVersion=(& java -version 2>&1 | Out-String)
     if ($javaVersion -notmatch 'version "(\d+)' -or [int]$Matches[1] -lt 17) { throw 'Set JAVA_HOME and PATH to JDK 17 or later.' }
@@ -78,6 +79,7 @@ try {
         $env:DB_URL="jdbc:mysql://${dbHost}:${dbPort}/$name" + '?serverTimezone=Asia%2FShanghai&allowPublicKeyRetrieval=true&useSSL=false'
         Run 'npm.cmd' @('--prefix','frontend','install','--no-save','--package-lock=false','playwright@1.58.2')
         Run 'node.exe' @('frontend/node_modules/playwright/cli.js','install','chromium')
+        $env:C12_VERIFY_DB_FAULT='true'
         Run 'node.exe' @('tests/c8-e2e.mjs')
         return
     }
@@ -107,5 +109,6 @@ try {
     if ($backend -and !$backend.HasExited) { Stop-Process -Id $backend.Id }
     if ($createdSchema -match '^c12_[0-9a-f]{32}_test$') { Sql "DROP DATABASE $createdSchema;" | Out-Null }
     $env:DB_URL=$savedUrl
+    $env:C12_VERIFY_DB_FAULT=$savedFault
     Pop-Location
 }
