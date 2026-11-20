@@ -305,8 +305,18 @@ try {
     const actionResults = responses.map(res => res.actions.at(-1).result.id)
     assert.equal(actionResults[0], actionResults[1])
     const edit = (await chat('修改任务 edit=' + actionResults[0])).actions.at(-1)
-    await decideAction(edit)
+    const concurrent=await request(a,'/agent/sessions','POST')
+    const concurrentPath='/agent/sessions/'+concurrent.id
+    const sameEdit=(await request(a,concurrentPath+'/messages','POST',{text:'修改任务 edit='+actionResults[0]})).actions.at(-1)
+    assert.equal(edit.status,'PENDING')
+    assert.equal(sameEdit.status,'PENDING')
+    const racing=await Promise.all([
+      decideAction(edit),
+      request(a,concurrentPath+'/actions/'+sameEdit.id+'/decision','POST',{confirm:true,digest:sameEdit.digest}),
+    ])
+    assert.deepEqual(racing.map(result=>result.actions.at(-1).status).sort(),['EXECUTED','FAILED'])
     assert.equal((await request(a, '/tasks/' + actionResults[0])).priority, 4)
+    report.push('C-12 two separately approved edits to the same task: one executes, the stale proposal fails')
     const denied=await chat('c12invalidtool')
     assert.ok(denied.messages.at(-1).tools.some(tool=>tool.name==='propose_task_update'&&!tool.success))
     assert.equal(denied.actions.filter(item=>item.status==='PENDING').length,0)
