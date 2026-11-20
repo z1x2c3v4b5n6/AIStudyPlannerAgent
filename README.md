@@ -371,3 +371,9 @@ GitHub Actions 在 push 到 `main` 和针对 `main` 的 Pull Request 上并行�
 在「知识中心 → 技术问答」按软件版本和知识范围提问，回答可打开引用片段。已发布的公共资料也会参与学习路径生成。达到反馈阈值后，审核人员可在「知识复核」重查官方来源和运行版本回归。
 
 [查看 C-11 架构、评估和可选联网联调](docs/evidence-rag-c11.md)
+
+### C-12 启动和发布验收
+
+Windows 可从仓库根目录执行 `.scriptsdev-acceptance.ps1 -Mode Doctor`，用 `-Mode Start` 启动，或用 `-Mode E2E` 创建可清理的隔离测试数据库并验收。真实 DeepSeek 和官方联网探针需显式启用。
+
+[查看 C-12 验收矩阵、RAG 评估与真实联调命令](docs/release-readiness-c12.md)
