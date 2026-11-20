@@ -116,3 +116,21 @@ export async function verifyEvidenceRag({a,b,account,request,page,frontend,repor
   await page.getByRole('dialog',{name:'引用片段'}).getByText(/public method/).waitFor()
   report.push('C-11 private RAG isolation and Chromium answer-to-citation interaction')
 }
+
+export async function verifyLiveRag({a,request,report}) {
+  const root='/knowledge-hub'
+  const unique='proxyfixture'+randomUUID().replaceAll('-','').slice(0,10)
+  const source=await request(a,root+'/manage/sources','POST',{name:'Synthetic transaction evidence',domain:'JAVA_BACKEND',
+    url:'https://docs.spring.io/spring-boot/3.5/reference/'+unique+'.html',softwareVersion:'3.5'})
+  const version=await request(a,root+'/manage/sources/'+source.id+'/candidate','POST',{title:'Transaction proxy '+unique,
+    text:'# Synthetic fixture\n\n'+unique+' applies when a call goes through the transaction proxy.',
+    domain:'JAVA_BACKEND',softwareVersion:'3.5'})
+  for(const decision of ['APPROVE','PUBLISH'])
+    await request(a,root+'/manage/versions/'+version.id+'/decision','POST',{decision,reason:'isolated real-provider test fixture'})
+  const answer=await request(a,root+'/rag/answer','POST',{query:unique+' 的事务代理什么时候生效？',softwareVersion:'3.5',scope:'PUBLIC'})
+  assert.equal(answer.retrievalMode,'GENERATED',JSON.stringify({fallbackReason:answer.fallbackReason}))
+  assert.ok(answer.citations.some(citation=>citation.evidence.versionId===version.id))
+  console.log(JSON.stringify({probe:'c11-real-deepseek',model:answer.modelInformation,tokens:answer.tokenUsage,
+    latency:answer.latencyInformation,citations:answer.citations.length}))
+  report.push('C-11 live DeepSeek: cited answer verified against isolated synthetic material')
+}

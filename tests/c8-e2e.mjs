@@ -6,7 +6,7 @@ import { setTimeout } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { verifyKnowledgeHub } from './c10-e2e.mjs'
-import { verifyEvidenceRag } from './c11-e2e.mjs'
+import { verifyEvidenceRag, verifyLiveRag } from './c11-e2e.mjs'
 
 const database = process.env.DB_URL ?? ''
 assert.match(database, /^jdbc:mysql:\/\/(127\.0\.0\.1|localhost):\d+\/[a-zA-Z0-9_]+_test(?:\?|$)/,
@@ -433,6 +433,7 @@ try {
   report.push('C-9 Chromium: authenticated learning insights and actual review data')
   await verifyKnowledgeHub({a,b,account,request,page,frontend,report})
   if (!live) await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
+  if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
   assert.deepEqual(pageErrors, [])
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
 } finally {
