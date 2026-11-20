@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { setTimeout } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
+import { verifyC12 } from './c12-e2e.mjs'
 import { createProviderBudget } from './c12-provider.mjs'
 import { verifyKnowledgeHub } from './c10-e2e.mjs'
 import { verifyEvidenceRag, verifyLiveRag } from './c11-e2e.mjs'
@@ -22,6 +23,19 @@ const fixturePort = 18081
 const providerTrace = []
 const c12Live = live && process.env.C12_LIVE_DEEPSEEK === 'true'
 const providerBudget = c12Live ? createProviderBudget() : null
+let pauseReached
+let pauseRelease
+const paused = new Promise(resolve => {pauseReached=resolve})
+const resume = new Promise(resolve => {pauseRelease=resolve})
+const c12Gate = {
+  async wait() {
+    const timeout = AbortSignal.timeout(10000)
+    await Promise.race([paused,new Promise((_,reject)=>timeout.addEventListener('abort',()=>{
+      reject(new Error('C12 model pause fixture never reached'))
+    },{once:true}))])
+  },
+  release: () => pauseRelease(),
+}
 
 function modelFixture(request) {
   const last = request.messages.at(-1)
@@ -32,7 +46,7 @@ function modelFixture(request) {
     const evidence=rag.untrustedEvidence[0]
     const content={claims:evidence?[{statement:'请按照该版本的官方说明核对配置。',
       evidenceId:rag.question.includes('unknowncitation')?'E999':evidence.id,quote:evidence.text.slice(0,120)}]:[]}
-    message={role:'assistant',content:JSON.stringify(content)}
+    message={role:'assistant',content:rag.question.includes('c12invalidjson')?'not-json':JSON.stringify(content)}
   } else if (request.response_format?.type === 'json_object') {
     for(const block of rag?.untrustedDocumentEvidence || []) providerTrace.push('c11-path:'+block.versionId)
     const topic = 'Spring Boot 自动配置'
@@ -53,7 +67,10 @@ function modelFixture(request) {
     const change = content.match(/edit=(\d+)/)
     let name = 'today_tasks'
     let args = {}
-    if (subject) {
+    if (content.includes('c12invalidtool')) {
+      name='propose_task_update'
+      args={taskId:-1}
+    } else if (subject) {
       name = 'propose_task_create'
       args = { subjectId: Number(subject[1]), title: 'Agent 实际创建的任务', priority: 2, estimatedMinutes: 30 }
     } else if (change) {
@@ -92,6 +109,11 @@ const fixture = createServer(async (req, res) => {
     for await (const part of req) parts.push(part)
     const request = JSON.parse(Buffer.concat(parts).toString('utf8'))
     if (!live) {
+      const last=request.messages.at(-1)
+      if (last?.role==='user' && String(last.content).includes('c12pause')) {
+        pauseReached()
+        await resume
+      }
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(modelFixture(request)))
       return
     }
@@ -174,6 +196,14 @@ async function drain(account, run) {
 }
 const report = []
 try {
+  if (providerBudget) {
+    const readback = await providerBudget.forward({ model: process.env.DEEPSEEK_MODEL,
+      messages: [{ role: 'user', content: 'Return only the JSON object {"ready":true}.' }],
+      max_tokens: 256, response_format: { type: 'json_object' } })
+    providerTrace.push(readback.event)
+    assert.equal(readback.status, 200)
+    assert.equal(JSON.parse(readback.data.choices[0].message.content).ready, true)
+  }
   await ready(api + '/auth/me')
   await ready(frontend)
   const a = await account()
@@ -270,6 +300,9 @@ try {
     const edit = (await chat('修改任务 edit=' + actionResults[0])).actions.at(-1)
     await decideAction(edit)
     assert.equal((await request(a, '/tasks/' + actionResults[0])).priority, 4)
+    const denied=await chat('c12invalidtool')
+    assert.ok(denied.messages.at(-1).tools.some(tool=>tool.name==='propose_task_update'&&!tool.success))
+    assert.equal(denied.actions.filter(item=>item.status==='PENDING').length,0)
     report.push('C-7: goal/stat reads, create/update, cross-account denial, durable duplicate receipt')
   }
 
@@ -285,25 +318,20 @@ try {
   }
 
   if (providerBudget) {
-    const readback = await providerBudget.forward({ model: process.env.DEEPSEEK_MODEL,
-      messages: [{ role: 'user', content: 'Return only the JSON object {"ready":true}.' }],
-      max_tokens: 256, response_format: { type: 'json_object' } })
-    providerTrace.push(readback.event)
-    assert.equal(readback.status, 200)
-    assert.equal(JSON.parse(readback.data.choices[0].message.content).ready, true)
     const editDay=date(3)
-    const current=await request(a,'/tasks/'+task.id)
+    const target=await request(a,'/tasks','POST',{subjectId:subject.id,title:'C12 Live Approval Fixture',priority:2,estimatedMinutes:30,plannedDate:date()})
+    const current=await request(a,'/tasks/'+target.id)
     const reply=await request(a,base+'/messages','POST',{ text:
-      '请先调用 open_tasks 查询标题“Spring Boot 条件装配”的任务，再调用 propose_task_update 生成日期变更草案。将真实任务的 plannedDate 改为 '+editDay+'。保留其他字段，等待我确认。' })
+      '请先调用 open_tasks 查询标题“C12 Live Approval Fixture”的任务，再调用 propose_task_update 生成日期变更草案。将真实任务的 plannedDate 改为 '+editDay+'。保留其他字段，等待我确认。' })
     const successful=reply.messages.at(-1).tools.filter(tool=>tool.success)
     assert.ok(successful.some(tool=>tool.name==='open_tasks'))
     assert.ok(reply.actions.some(item=>item.type==='propose_task_update' && item.status==='PENDING'))
     const pending=reply.actions.findLast(item=>item.type==='propose_task_update' && item.status==='PENDING')
-    assert.equal((await request(a,'/tasks/'+task.id)).plannedDate,current.plannedDate)
+    assert.equal((await request(a,'/tasks/'+target.id)).plannedDate,current.plannedDate)
     const confirm=()=>request(a,base+'/actions/'+pending.id+'/decision','POST',{confirm:true,digest:pending.digest})
     await confirm()
     await confirm()
-    assert.equal((await request(a,'/tasks/'+task.id)).plannedDate,editDay)
+    assert.equal((await request(a,'/tasks/'+target.id)).plannedDate,editDay)
     report.push('C-12 live model: structured JSON, multi-tool read and user-approved update with duplicate receipt')
   }
 
@@ -465,13 +493,16 @@ try {
   await page.getByText(candidate.topic, {exact: true}).waitFor()
   report.push('C-9 Chromium: authenticated learning insights and actual review data')
   await verifyKnowledgeHub({a,b,account,request,page,frontend,report})
-  if (!live) await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
+  if (!live) {
+    await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
+    await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate})
+  }
   if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
   assert.deepEqual(pageErrors, [])
   completed = true
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
 } finally {
-  console.log(JSON.stringify({ dataset: 'c8-c11-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
+  console.log(JSON.stringify({ dataset: 'c8-c12-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
     status: completed ? 'PASS' : 'FAIL', passedChecks: report.length, report, providerTrace, budget: providerBudget?.summary(), billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()
