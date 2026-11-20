@@ -37,7 +37,7 @@ function measure(values) {
   return { p50:quantile(.50), p95:quantile(.95) }
 }
 
-export async function verifyC12({a,b,request,report,java,backendPid,gate}) {
+export async function verifyC12({a,b,request,report,java,backendPid,gate,page,frontend}) {
   const hub='/knowledge-hub'
   const unique='c12publication'+randomUUID().replaceAll('-','').slice(0,12)
   const source=await request(a,hub+'/manage/sources','POST',{name:unique,domain:'JAVA_BACKEND',
@@ -81,6 +81,30 @@ export async function verifyC12({a,b,request,report,java,backendPid,gate}) {
     assert.equal(malformed.fallbackReason,'INVALID_CITATION')
     await request(b,hub+'/personal','POST',{title:'C12 too large',text:'x'.repeat(100001),domain:'JAVA_BACKEND'},400)
     report.push('C-12 blocked model call revalidates evidence after real rollback; oversized personal upload rejected')
+
+    const uiSubject='C12 Browser Subject '+unique
+    await page.goto(frontend+'/subjects')
+    await page.getByRole('button',{name:'创建科目',exact:true}).click()
+    const subjectForm=page.getByRole('dialog',{name:'创建科目'})
+    await subjectForm.getByLabel('科目名称').fill(uiSubject)
+    await subjectForm.getByRole('button',{name:'保存',exact:true}).click()
+    await page.getByText(uiSubject,{exact:true}).waitFor()
+    const owned=(await request(a,'/subjects')).find(subject=>subject.name===uiSubject)
+    assert.ok(owned)
+
+    await page.goto(frontend+'/tasks')
+    await page.getByRole('button',{name:'创建任务',exact:true}).click()
+    const taskForm=page.getByRole('dialog',{name:'创建任务'})
+    await taskForm.locator('.el-form-item').filter({hasText:'所属科目'}).locator('.el-select').click()
+    await page.getByRole('option',{name:uiSubject,exact:true}).click()
+    const uiTask='C12 Browser Task '+unique
+    await taskForm.getByLabel('任务标题').fill(uiTask)
+    await taskForm.getByRole('button',{name:'保存',exact:true}).click()
+    await page.getByText(uiTask,{exact:true}).waitFor()
+    const saved=(await request(a,'/tasks?subjectId='+owned.id)).list.find(task=>task.title===uiTask)
+    assert.ok(saved)
+    await request(b,'/tasks/'+saved.id,'GET',undefined,404)
+    report.push('C-12 Chromium creates subject and task, API read-back enforces ownership')
 
     const before=snapshot(backendPid)
     const connectionsBefore=Number(mysql.run('connections',trigger))

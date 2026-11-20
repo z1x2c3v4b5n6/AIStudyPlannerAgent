@@ -514,7 +514,7 @@ try {
   await verifyKnowledgeHub({a,b,account,request,page,frontend,report})
   if (!live) {
     await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
-    if (process.env.C12_VERIFY_DB_FAULT==='true') await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate})
+    if (process.env.C12_VERIFY_DB_FAULT==='true') await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate,page,frontend})
   }
   if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
   assert.deepEqual(pageErrors, [])
