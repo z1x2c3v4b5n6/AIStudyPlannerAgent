@@ -18,8 +18,21 @@ class C12OfficialAcceptanceTest {
                 "17",KnowledgeDomain.JAVA_BACKEND,"concurrenthashmap","/javase/17/"),
         new Target("Spring Boot","https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html",
                 "3.5",KnowledgeDomain.JAVA_BACKEND,"endpoint","/spring-boot/3.5/"),
-        new Target("Spring AI","https://docs.spring.io/spring-ai/1.1/reference/api/tools.html",
-                "1.1",KnowledgeDomain.AI_APPLICATION,"tool","/spring-ai/1.1/"));
+        new Target("Spring AI","https://docs.spring.io/spring-ai/reference/1.1/api/tools.html",
+                "1.1",KnowledgeDomain.AI_APPLICATION,"tool","/spring-ai/reference/1.1/"));
+
+    @Test
+    void recognizesSpringAiReferenceVersionWithoutLettingOtherReleasesThrough() {
+        var root=URI.create("https://docs.spring.io/spring-ai/reference/1.1/index.html");
+        var query=new KnowledgeHubSearch.Query("Spring AI tool calling",KnowledgeDomain.AI_APPLICATION,
+                "1.1",null,null,KnowledgeHubSearch.Scope.PUBLIC,true);
+        var links=OfficialCatalogSearch.links(root,"""
+                <a href="api/tools.html">Tool Calling</a>
+                <a href="/spring-ai/reference/2.0/api/tools.html">Tool Calling</a>
+                """,query);
+        assertEquals(1,links.size());
+        assertEquals("1.1",links.get(0).softwareVersion());
+    }
 
     @Test
     @EnabledIfEnvironmentVariable(named="C12_LIVE_OFFICIAL",matches="true")

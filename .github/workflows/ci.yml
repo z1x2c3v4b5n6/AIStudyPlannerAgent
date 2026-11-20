@@ -28,6 +28,8 @@ jobs:
           java-version: "17"
           cache: maven
           cache-dependency-path: backend/pom.xml
+      - name: Test retry classification
+        run: bash ../scripts/ci/test-dependency-retry.sh
       - name: Test backend
         run: bash ../scripts/ci/with-dependency-retry.sh maven mvn -B clean test
       - name: Package backend
@@ -67,6 +69,15 @@ jobs:
         run: bash ../scripts/ci/with-dependency-retry.sh npm npm ci
       - name: Test plan progress logic
         run: npm run test:progress
+      - name: Test model budget without contacting provider
+        run: node --test ../tests/c12-provider.test.mjs
+      - name: Validate PowerShell launcher syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ../scripts/dev-acceptance.ps1).Path, [ref]$null, [ref]$errors)
+          if ($errors.Count -gt 0) { $errors; exit 1 }
       - name: Build frontend
         run: npm run build
 
