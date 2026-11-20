@@ -29,9 +29,24 @@ jobs:
           cache: maven
           cache-dependency-path: backend/pom.xml
       - name: Test backend
-        run: mvn -B clean test
+        run: bash ../scripts/ci/with-dependency-retry.sh maven mvn -B clean test
       - name: Package backend
-        run: mvn -B package -DskipTests
+        run: bash ../scripts/ci/with-dependency-retry.sh maven mvn -B package -DskipTests
+      - name: Upload tested application
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target/ai-study-planner-agent-0.0.1-SNAPSHOT.jar
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload offline evaluation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c12-offline-evaluation
+          path: backend/target/c12-*.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   frontend:
     name: Frontend
@@ -49,7 +64,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
-        run: npm ci
+        run: bash ../scripts/ci/with-dependency-retry.sh npm npm ci
       - name: Test plan progress logic
         run: npm run test:progress
       - name: Build frontend
@@ -58,7 +73,8 @@ jobs:
   workflow-e2e:
     name: Workflow E2E (MySQL, Redis, Chromium)
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    needs: backend
+    timeout-minutes: 12
     services:
       mysql:
         image: mysql:8.4
@@ -85,24 +101,30 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-          cache: maven
-          cache-dependency-path: backend/pom.xml
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: mvn -B -f backend/pom.xml package -DskipTests
+      - name: Download tested application
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target
+      - name: Install browser test dependencies
+        working-directory: frontend
+        run: bash ../scripts/ci/with-dependency-retry.sh npm npm ci
       - name: Build Vue
         working-directory: frontend
-        run: npm ci && npm run build
+        run: npm run build
       - name: Prepare Chromium
         working-directory: frontend
         run: |
-          npm install --no-save --package-lock=false playwright@1.58.2
+          bash ../scripts/ci/with-dependency-retry.sh npm npm install --no-save --package-lock=false playwright@1.58.2
           if command -v google-chrome >/dev/null; then
             echo "C8_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
           else
             npx playwright install chromium
           fi
-      - run: node tests/c8-e2e.mjs
+      - name: Run authenticated business and Chromium scenarios
+        run: node tests/c8-e2e.mjs
