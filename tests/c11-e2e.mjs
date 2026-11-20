@@ -68,6 +68,9 @@ export async function verifyEvidenceRag({a,b,account,request,page,frontend,repor
   assert.equal(after.previous.hit,true)
   assert.equal(after.current.hit,false)
   assert.equal(after.regression,true)
+  const fixed=await request(a,casePath+'/evaluate','POST',{...evaluation,expectedTerm:'recommended configuration'})
+  assert.equal(fixed.previous.hit,false)
+  assert.equal(fixed.current.hit,true)
   await path()
   assert.ok(providerTrace.includes('c11-path:'+v2.id))
   await manage(v1,'ROLLBACK')
@@ -78,6 +81,20 @@ export async function verifyEvidenceRag({a,b,account,request,page,frontend,repor
   await path()
   assert.equal(providerTrace.filter(item=>item==='c11-path:'+v1.id).length,2)
   report.push('C-11 three independent feedback votes open one durable case; regression and rollback confirmed')
+
+  const newerLine=await request(a,hub+'/manage/sources','POST',{
+    name:title+' v4',url:'https://docs.spring.io/spring-boot/4.0/reference/'+key+'.html',
+    domain:'JAVA_BACKEND',softwareVersion:'4.0',
+  })
+  const v4=await request(a,hub+'/manage/sources/'+newerLine.id+'/candidate','POST',{
+    title:title+' v4',text:'# Updated options\n\n'+key+' keeps a separate software-version record.',
+    domain:'JAVA_BACKEND',softwareVersion:'4.0',
+  })
+  await manage(v4,'APPROVE')
+  await manage(v4,'PUBLISH')
+  assert.equal((await ask(a,key,{softwareVersion:'4.0'})).citations[0].evidence.versionId,v4.id)
+  assert.equal((await ask(a,key,{softwareVersion:'3.5'})).citations[0].evidence.versionId,v1.id)
+  assert.equal((await ask(a,key)).fallbackReason,'AMBIGUOUS_VERSION')
 
   const examples=[
     {label:'Java monitor',keyword:'monitorexample'+key,url:'https://docs.oracle.com/en/java/javase/17/docs/'+key+'.html',

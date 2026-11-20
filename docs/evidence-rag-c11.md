@@ -18,7 +18,7 @@ Learning Path 保留原有 C-4 知识顺序、前置依赖和 JSON/业务校验�
 
 `RegisteredSourceSearch` 保留为后备。配置 `APP_KNOWLEDGE_ONLINE_ENABLED=true` 和 `APP_KNOWLEDGE_CATALOG_URLS` 后，可从配置的官方 HTML 目录发现相关链接。例如 Spring Boot 3.5 的 `https://docs.spring.io/spring-boot/3.5/reference/index.html`。每次只读取一个目录，最多继续读取两篇同站点、同产品和同版本文档，逐页复用 C-10 的 HTTPS、重定向禁用、响应大小和请求时限。服务端通过正文匹配再次筛选结果。Redis 维持每用户的 30 秒间隔。官方目录链接和页面正文都是临时证据。
 
-CI 使用固定目录夹具。要主动测试真实官方客户端，可运行 `C11_LIVE_OFFICIAL=true mvn -f backend/pom.xml -Dtest=EvidenceRagTest#readsRelevantOfficialCatalogDocument test`。需要 Java 进程具备出网能力。要支付实际模型调用成本，请使用隔离测试数据库，在 CI 以外同时显式设置 `C8_LIVE_DEEPSEEK=true C11_LIVE_DEEPSEEK=true`，提供 `DEEPSEEK_API_KEY`，然后按 C-8 文档运行 `node tests/c8-e2e.mjs`。该探针用合成参考文本测试有来源的真实模型回答，报告返回的 Token 用量，费用按账号费率核算。
+CI 使用固定目录夹具。开发验证另外下载了真实 Spring Boot 3.5 目录和 Actuator Endpoints 正文，由 Java Provider 选出该相关链接、清洗并分块。当前工作环境的 JVM 直接出网探针未通过。要主动测试真实官方客户端，可运行 `C11_LIVE_OFFICIAL=true mvn -f backend/pom.xml -Dtest=EvidenceRagTest#readsRelevantOfficialCatalogDocument test`。需要 Java 进程具备出网能力。要支付实际模型调用成本，请使用隔离测试数据库，在 CI 以外同时显式设置 `C8_LIVE_DEEPSEEK=true C11_LIVE_DEEPSEEK=true`，提供 `DEEPSEEK_API_KEY`，然后按 C-8 文档运行 `node tests/c8-e2e.mjs`。该探针用合成参考文本测试有来源的真实模型回答，报告返回的 Token 用量，费用按账号费率核算。
 
 ## 知识复核
 
