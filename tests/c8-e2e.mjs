@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
+import { createServer as reservePort } from 'node:net'
+import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { setTimeout } from 'node:timers/promises'
@@ -15,6 +17,21 @@ assert.match(database, /^jdbc:mysql:\/\/(127\.0\.0\.1|localhost):\d+\/[a-zA-Z0-9
   'Use a disposable local MySQL schema ending in _test')
 const live = process.env.C8_LIVE_DEEPSEEK === 'true'
 if (live && (!process.env.DEEPSEEK_API_KEY || process.env.CI)) throw new Error('Live mode requires a local key outside CI')
+if (existsSync('application-local.yml'))
+  throw new Error('Acceptance requires no root application-local.yml override')
+async function requireVacantPort(port) {
+  const socket=reservePort()
+  try {
+    await new Promise((resolve,reject)=>{
+      socket.once('error',reject)
+      socket.listen({port,exclusive:true},resolve)
+    })
+  } catch (failure) {
+    throw new Error('Acceptance requires unused port '+port+' ('+failure.code+')')
+  }
+  await new Promise((resolve,reject)=>socket.close(error=>error?reject(error):resolve()))
+}
+await Promise.all([8080,5173,18081].map(requireVacantPort))
 const require = createRequire(process.env.C8_PLAYWRIGHT_ROOT ?? new URL('../frontend/package.json', import.meta.url))
 const { chromium } = require('playwright')
 const api = 'http://localhost:8080/api/v1'
@@ -141,6 +158,14 @@ if (fixture) await new Promise(resolve => fixture.listen(fixturePort, '127.0.0.1
 const java = process.env.JAVA_HOME ? `${process.env.JAVA_HOME}/bin/java` : 'java'
 const backendEnv = {
   ...process.env, AI_ENABLED: 'true',
+  SPRING_APPLICATION_JSON: '{}',
+  SPRING_DATASOURCE_URL: database,
+  SPRING_DATASOURCE_USERNAME: process.env.DB_USERNAME || 'root',
+  SPRING_DATASOURCE_PASSWORD: process.env.DB_PASSWORD || '',
+  SPRING_FLYWAY_URL: database,
+  SPRING_FLYWAY_USER: process.env.DB_USERNAME || 'root',
+  SPRING_FLYWAY_PASSWORD: process.env.DB_PASSWORD || '',
+  SERVER_PORT: '8080',
   DEEPSEEK_API_KEY: live ? process.env.DEEPSEEK_API_KEY : randomUUID(),
   DEEPSEEK_BASE_URL: `http://127.0.0.1:${fixturePort}`,
   DEEPSEEK_COMPLETIONS_PATH: '/chat/completions',
@@ -155,7 +180,7 @@ function launchBackend() {
   })
 }
 let backend = launchBackend()
-const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', 'localhost', '--port', '5173'], {
+const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', 'localhost', '--port', '5173', '--strictPort'], {
   cwd: 'frontend', stdio: ['ignore', 'inherit', 'inherit'],
   env: process.env,
 })
@@ -165,6 +190,8 @@ let failureCategory = null
 let phase = 'service_start'
 async function ready(url) {
   for (let n = 0; n < 90; n++) {
+    const child=url.startsWith(api)?backend:preview
+    if(child.exitCode!==null || child.signalCode!==null) throw new Error('Acceptance child exited before readiness')
     try {
       const response=await fetch(url,{signal:AbortSignal.timeout(2500)})
       if(response.status===(url.startsWith(api)?401:200)) return

@@ -29,7 +29,7 @@ CI 后端按现有 `backend/pom.xml` 配置 Maven 用户缓存。端到端作业
 - **Doctor** 检查工具版本、MySQL 登录、Redis 认证和 PING、当前 Flyway 记录及功能开关。当前独立客户端可指定 `-MySql`。
 - **Start** 打包后端、构建前端并启动两个进程。后端启动时迁移数据库，服务日志位于 `backend/target/local-c12`。登录地址为 `http://localhost:5173`。服务准备后按 Ctrl+C 退出。
 - **Smoke** 检查已运行的 API、Vue 和最近 Flyway 记录。未登录的后端认证端点应返回 HTTP 401。若端口已占用，先确认运行的是目标实例。
-- **E2E** 只接受本机 MySQL。它生成唯一的 `c12_<uuid>_test` 数据库、迁移并初始化合成测试账号和数据，在退出时清理本次创建的库。需要 CREATE DATABASE、DROP DATABASE 和 TRIGGER 权限。部署账户可保持较低权限。使用独立 Redis 测试实例或逻辑库。异常中止进程时，可由数据库管理员核对并清理脚本生成的测试库。
+- **E2E** 只接受本机 MySQL。运行器会先拒绝已占用的端口，将应用数据源与 Flyway 同时固定到隔离库。启动脚本生成唯一的 `c12_<uuid>_test` 数据库、迁移并初始化合成测试账号和数据，在退出时清理本次创建的库。需要 CREATE DATABASE、DROP DATABASE 和 TRIGGER 权限。部署账户可保持较低权限。使用独立 Redis 测试实例或逻辑库。异常中止进程时，可由数据库管理员核对并清理脚本生成的测试库。
 
 验证登录、科目、任务、路径、计划、学习记录和洞察后，进入 Agent 验证查询和人工审批，进入知识中心验证个人资料、引用及审核。审核用例启动时只为该次合成账号开启审核角色。真实环境按用户 ID 配置 `APP_KNOWLEDGE_REVIEWERS`。账号、密码、密钥与私人资料均应留在本机，勿复制到公开报告。C-12 默认保持 `APP_KNOWLEDGE_ONLINE_ENABLED=false`，联网时显式配置官方目录和网站访问策略。
 
