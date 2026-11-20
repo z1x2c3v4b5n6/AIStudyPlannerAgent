@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import RagQuestionPanel from './RagQuestionPanel.vue'
+import KnowledgeReviewPanel from './KnowledgeReviewPanel.vue'
 import { computed, onMounted, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import {
@@ -174,6 +176,14 @@ function decide(action: string) {
     notice.value='审核操作已记录。'
   })
 }
+async function inspectCase(id: string) {
+  tab.value='manage'
+  await perform(async () => {
+    await refreshManage()
+    const row=candidates.value.find(item=>item.id===id)
+    await inspect(row || (await api.inspect(id)).data.data.version)
+  })
+}
 </script>
 
 <template>
@@ -227,6 +237,9 @@ function decide(action: string) {
           <template #footer><el-button type="primary" :loading="busy" @click="sendFeedback">提交反馈</el-button></template>
         </el-dialog>
       </el-tab-pane>
+
+      <el-tab-pane name="rag" label="技术问答" lazy><RagQuestionPanel :can-fetch="canFetch"/></el-tab-pane>
+      <el-tab-pane v-if="reviewer" name="review-cases" label="知识复核" lazy><KnowledgeReviewPanel @inspect="inspectCase"/></el-tab-pane>
 
       <el-tab-pane name="personal" label="个人资料">
         <div class="controls">
