@@ -79,6 +79,27 @@ export async function verifyEvidenceRag({a,b,account,request,page,frontend,repor
   assert.equal(providerTrace.filter(item=>item==='c11-path:'+v1.id).length,2)
   report.push('C-11 three independent feedback votes open one durable case; regression and rollback confirmed')
 
+  const examples=[
+    {label:'Java monitor',keyword:'monitorexample'+key,url:'https://docs.oracle.com/en/java/javase/17/docs/'+key+'.html',
+      domain:'JAVA_BACKEND',version:'17',sentence:'Each object has an associated monitor.'},
+    {label:'Spring AI callbacks',keyword:'callbackexample'+key,url:'https://docs.spring.io/spring-ai/1.1/reference/'+key+'.html',
+      domain:'AI_APPLICATION',version:'1.1',sentence:'Register callbacks before calling the model.'},
+    {label:'RAG grounding',keyword:'retrievalexample'+key,url:'https://docs.spring.io/spring-ai/1.1/reference/'+key+'-rag.html',
+      domain:'AI_APPLICATION',version:'1.1',sentence:'Retrieval supplies evidence to ground the answer.'},
+  ]
+  for(const example of examples){
+    const exampleSource=await request(a,hub+'/manage/sources','POST',{name:example.label,url:example.url,domain:example.domain,
+      softwareVersion:example.version})
+    const item=await request(a,hub+'/manage/sources/'+exampleSource.id+'/candidate','POST',{title:example.label+' '+example.keyword,
+      text:'# Details\n\n'+example.keyword+' '+example.sentence,domain:example.domain,softwareVersion:example.version})
+    await manage(item,'APPROVE')
+    await manage(item,'PUBLISH')
+    const answer=await ask(a,example.keyword,{softwareVersion:example.version})
+    assert.equal(answer.retrievalMode,'GENERATED',example.label)
+    assert.equal(answer.citations[0].evidence.versionId,item.id)
+  }
+  report.push('C-11 Spring Boot, Java, Spring AI and RAG cited Q&A examples')
+
   const privateTerm='private'+key
   const personal=await request(a,hub+'/personal','POST',{title:'Personal '+privateTerm,domain:'JAVA_BACKEND',
     text:'# Private facts\n\n'+privateTerm+' is an owner-only fixture.'})

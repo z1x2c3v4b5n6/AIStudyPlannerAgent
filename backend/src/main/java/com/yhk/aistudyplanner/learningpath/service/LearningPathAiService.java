@@ -67,7 +67,7 @@ public class LearningPathAiService {
         LOGGER.info("Learning Path knowledge retrieval completed: domain={}, resultCount={}, contextUnits={}, contextCharacters={}",
                 retrievalQuery.domain()==null?"ALL":retrievalQuery.domain(),knowledgeResults.size(),knowledgeContext.unitCount(),knowledgeContext.characterCount());
         if(LOGGER.isDebugEnabled())LOGGER.debug("Learning Path knowledge context unitIds={}",knowledgeContext.unitIds());
-        var documents=publishedEvidence(retrievalQuery,request.softwareVersion());
+        var documents=publishedEvidence(retrievalQuery,request.softwareVersion(),knowledgeResults);
         String userPrompt=prompts.user(request,today,clock.getZone().getId(),knowledgeContext.text(),documents);
         try{return generateValidated(gateway,prompts.system(),userPrompt,request,start);}
         catch(BusinessException exception){
@@ -76,7 +76,7 @@ public class LearningPathAiService {
         }
     }
     private List<com.yhk.aistudyplanner.knowledge.hub.EvidenceContextBuilder.Block> publishedEvidence(
-            LearningPathKnowledgeQueryBuilder.RetrievalQuery query, String version) {
+            LearningPathKnowledgeQueryBuilder.RetrievalQuery query, String version, List<KnowledgeSearchResult> units) {
         if (rag==null) return List.of();
         try {
             var result=rag.retrieve(query.text(),query.domain(),version,
@@ -85,7 +85,12 @@ public class LearningPathAiService {
                 LOGGER.info("Learning Path evidence omitted: {}",result.caution());
                 return List.of();
             }
-            var blocks=evidenceBuilder.build(result,false,false).blocks();
+            if (com.yhk.aistudyplanner.knowledge.hub.RagRetrieval.conflictWithStructure(result.documents(),units)) {
+                LOGGER.info("Learning Path document and structured knowledge disagree; use existing C-4 context");
+                return List.of();
+            }
+            var context=evidenceBuilder.build(result,false,false);
+            var blocks=context.blocks().stream().filter(block->rag.current(context.documents().get(block.id()))).toList();
             LOGGER.info("Learning Path public evidence versionIds={}",blocks.stream().map(block->block.versionId()).distinct().toList());
             return blocks;
         } catch (org.springframework.dao.DataAccessException error) {

@@ -29,11 +29,12 @@ class RagAnswerService {
                RagRetrieval.Scope scope, boolean allowOnline, boolean allowPrivateModel, UUID conversationId) {}
     record Citation(EvidenceContextBuilder.Block evidence, String quote) {}
     record Claim(String statement, String evidenceId, String quote) {}
+    record Usage(Integer promptTokens,Integer completionTokens) {}
     record Latency(long retrievalMs, long modelMs, long totalMs) {}
     record Answer(String answer, List<Citation> citations, String retrievalMode, Set<String> usedVersions,
                   int evidenceCount, String fallbackReason, String modelInformation, Latency latencyInformation,
-                  UUID conversationId, KnowledgeHubSearch.OnlineStatus onlineStatus) {}
-    record History(UUID id, String question, String version, LocalDateTime time) {}
+                  UUID conversationId, KnowledgeHubSearch.OnlineStatus onlineStatus, Usage tokenUsage) {}
+    record History(UUID id, String question, String version, LocalDateTime time, RagRetrieval.Scope scope) {}
     private final RagRetrieval retrieval;
     private final EvidenceContextBuilder builder;
     private final ObjectProvider<PlanningGateway> gateways;
@@ -68,6 +69,7 @@ class RagAnswerService {
         var mode=gateways.getIfAvailable();
         List<Claim> claims=List.of();
         long modelMs=0;
+        Usage usage=null;
         boolean sent=false;
         if(fallback==null && context.blocks().isEmpty()) fallback="NO_EVIDENCE";
         if(fallback==null && (!properties.isEnabled() || mode==null)) fallback="AI_DISABLED";
@@ -78,11 +80,14 @@ class RagAnswerService {
                 try {
                     var payload=new LinkedHashMap<String,Object>();
                     payload.put("question",ask.query());
-                    payload.put("previousQuestion",past==null?"":past.question());
+                    boolean mayUsePast=past!=null && (past.scope()==RagRetrieval.Scope.PUBLIC || ask.allowPrivateModel());
+                    payload.put("previousQuestion",mayUsePast?past.question():"");
                     payload.put("version",Objects.toString(result.effectiveVersion(),""));
                     payload.put("untrustedEvidence",context.blocks());
                     sent=true;
-                    claims=decode(mode.generate(SYSTEM,mapper.writeValueAsString(payload)),context.blocks(),mapper);
+                    var completion=mode.generateWithUsage(SYSTEM,mapper.writeValueAsString(payload));
+                    usage=new Usage(completion.promptTokens(),completion.completionTokens());
+                    claims=decode(completion.text(),context.blocks(),mapper);
                     if(claims.isEmpty()) fallback="MODEL_ABSTAINED";
                     else if(claims.stream().map(Claim::evidenceId).distinct().map(context.documents()::get)
                             .filter(Objects::nonNull).anyMatch(row->!retrieval.current(row))) fallback="EVIDENCE_CHANGED";
@@ -91,21 +96,21 @@ class RagAnswerService {
                 finally { modelMs=since(modelStart); capacity.release(); }
             }
         }
-        UUID id=remember(ask.query(),result.effectiveVersion());
+        UUID id=remember(ask.query(),result.effectiveVersion(),ask.scope()==null?RagRetrieval.Scope.PUBLIC:ask.scope());
         if(fallback==null) {
             var blocks=new HashMap<String,EvidenceContextBuilder.Block>();
             context.blocks().forEach(block->blocks.put(block.id(),block));
             var cites=claims.stream().map(claim->new Citation(blocks.get(claim.evidenceId()),claim.quote())).distinct().toList();
             String answer=String.join("\n",claims.stream().map(claim->claim.statement()+" ["+claim.evidenceId()+"]").toList());
             return new Answer(answer,cites,"GENERATED",versions(cites),context.blocks().size(),null,
-                    properties.getModel(),new Latency(retrievalMs,modelMs,since(start)),id,result.onlineStatus());
+                    properties.getModel(),new Latency(retrievalMs,modelMs,since(start)),id,result.onlineStatus(),usage);
         }
         var display=builder.build(result,true,true);
         var citations=display.blocks().stream().filter(block->!display.documents().containsKey(block.id())
                         || retrieval.current(display.documents().get(block.id())))
                 .map(block->new Citation(block,block.text())).toList();
         return new Answer(null,citations,"EVIDENCE_ONLY",versions(citations),citations.size(),fallback,
-                sent?properties.getModel():null,new Latency(retrievalMs,modelMs,since(start)),id,result.onlineStatus());
+                sent?properties.getModel():null,new Latency(retrievalMs,modelMs,since(start)),id,result.onlineStatus(),usage);
     }
 
     static List<Claim> decode(String raw,List<EvidenceContextBuilder.Block> blocks,ObjectMapper mapper)
@@ -138,7 +143,7 @@ class RagAnswerService {
 
     private History conversation(UUID id) {
         if(id==null) return null;
-        var rows=db.query("SELECT id,question,software_version,created_at FROM knowledge_rag_turn WHERE id=? AND owner_id=?",
+        var rows=db.query("SELECT id,question,software_version,created_at,scope FROM knowledge_rag_turn WHERE id=? AND owner_id=?",
                 this::readHistory,id.toString(),auth.currentUserId());
         if(rows.isEmpty()) throw new com.yhk.aistudyplanner.common.exception.BusinessException(
                 com.yhk.aistudyplanner.common.exception.ErrorCode.RESOURCE_NOT_FOUND);
@@ -147,20 +152,20 @@ class RagAnswerService {
 
     List<History> history() {
         return db.query("""
-                SELECT id,question,software_version,created_at FROM knowledge_rag_turn
+                SELECT id,question,software_version,created_at,scope FROM knowledge_rag_turn
                 WHERE owner_id=? ORDER BY created_at DESC,id LIMIT 30
                 """,this::readHistory,auth.currentUserId());
     }
 
     private History readHistory(java.sql.ResultSet r,int index) throws java.sql.SQLException {
-        return new History(UUID.fromString(r.getString(1)),r.getString(2),r.getString(3),r.getObject(4,LocalDateTime.class));
+        return new History(UUID.fromString(r.getString(1)),r.getString(2),r.getString(3),r.getObject(4,LocalDateTime.class),RagRetrieval.Scope.valueOf(r.getString(5)));
     }
 
-    private UUID remember(String question,String version) {
+    private UUID remember(String question,String version,RagRetrieval.Scope scope) {
         UUID id=UUID.randomUUID();
         try {
-            db.update("INSERT INTO knowledge_rag_turn(id,owner_id,question,software_version,created_at) VALUES(?,?,?,?,?)",
-                    id.toString(),auth.currentUserId(),question,version,LocalDateTime.now(clock));
+            db.update("INSERT INTO knowledge_rag_turn(id,owner_id,question,software_version,created_at,scope) VALUES(?,?,?,?,?,?)",
+                    id.toString(),auth.currentUserId(),question,version,LocalDateTime.now(clock),scope.name());
             return id;
         } catch(DataAccessException unavailable) { return null; }
     }

@@ -16,18 +16,24 @@ public class RagRetrieval {
             Pattern.compile("(?i)\\b(?:spring\\s+(?:boot|ai|framework)|java|jdk)\\s+v?(\\d+(?:\\.\\d+){0,3})(?![\\w.])");
     private static final Set<String> GENERIC = Set.of("spring","boot","java","jdk","framework","ai","version","configuration",
             "配置","版本","为什么","请问","怎么","如何","不能","没有","最新","现在");
+    private static final Map<String,String> BILINGUAL = Map.ofEntries(
+            Map.entry("事务","transaction"),Map.entry("代理","proxy"),Map.entry("自动配置","autoconfiguration"),
+            Map.entry("工具调用","tool callbacks"),Map.entry("检索增强","retrieval augmented"),
+            Map.entry("向量存储","vector store"),Map.entry("配置属性","configuration properties"),
+            Map.entry("端点","endpoint"),Map.entry("线程","thread"));
     private final KnowledgeHubSearch hub;
 
     RagRetrieval(KnowledgeHubSearch hub) { this.hub=hub; }
 
     public RetrievalResult retrieve(String query, KnowledgeDomain domain, String version, Scope scope, boolean online) {
         String effective=version==null || version.isBlank()?implicitVersion(query):EvidenceText.normalize(version.strip());
-        var result=hub.search(new KnowledgeHubSearch.Query(query,domain,effective,null,null,
+        String searchable=searchable(query);
+        var result=hub.search(new KnowledgeHubSearch.Query(searchable,domain,effective,null,null,
                 KnowledgeHubSearch.Scope.valueOf((scope==null?Scope.PUBLIC:scope).name()),online));
         var docs=new ArrayList<KnowledgeHubSearch.Evidence>();
         docs.addAll(result.published());
         docs.addAll(result.online());
-        docs.removeIf(row->!relevant(query,row) || effective!=null && !effective.equalsIgnoreCase(row.softwareVersion()));
+        docs.removeIf(row->!relevant(searchable,row) || effective!=null && !effective.equalsIgnoreCase(row.softwareVersion()));
         docs.sort(Comparator.comparingInt(KnowledgeHubSearch.Evidence::score).reversed()
                 .thenComparing(row->"OFFICIAL_FETCH".equals(row.ingestKind())?0:1)
                 .thenComparing(row->Objects.toString(row.versionId(),row.url())).thenComparingInt(KnowledgeHubSearch.Evidence::ordinal));
@@ -39,12 +45,19 @@ public class RagRetrieval {
         } else if (effective==null && versions.size()>1) {
             caution="AMBIGUOUS_VERSION";
         } else if (effective==null && docs.stream().anyMatch(row->!"PRIVATE".equals(row.scope()) && row.softwareVersion()==null)) {
-            docs.removeIf(row->!"PRIVATE".equals(row.scope()) && row.softwareVersion()==null);
-            if (docs.isEmpty()) caution="VERSION_UNKNOWN";
+            if (versions.isEmpty()) caution="VERSION_UNKNOWN";
+            else docs.removeIf(row->!"PRIVATE".equals(row.scope()) && row.softwareVersion()==null);
         }
-        if (disagrees(docs) && caution==null) caution="POSSIBLE_CONFLICT";
+        if (conflictWithStructure(docs,result.structured()) && caution==null) caution="POSSIBLE_CONFLICT";
         return new RetrievalResult(result.structured(),List.copyOf(docs),Collections.unmodifiableSet(versions),
                 effective,caution,result.onlineStatus());
+    }
+
+    static String searchable(String query) {
+        String extras=BILINGUAL.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .filter(entry->query.contains(entry.getKey())).map(Map.Entry::getValue)
+                .limit(4).collect(java.util.stream.Collectors.joining(" "));
+        return extras.isEmpty()?query:extras+" "+query;
     }
 
     public static String implicitVersion(String query) {
@@ -62,21 +75,31 @@ public class RagRetrieval {
                 || EvidenceText.terms(query).size()==1;
     }
 
-    static boolean disagrees(List<KnowledgeHubSearch.Evidence> docs) {
-        // A bounded detector for explicitly opposite on/off defaults for the same named setting.
+    public static boolean conflictWithStructure(List<KnowledgeHubSearch.Evidence> docs, List<KnowledgeSearchResult> units) {
+        // Detect explicitly opposite boolean defaults for the same dotted setting and version.
         var values=new HashMap<String,String>();
-        var setting=Pattern.compile("(?i)\\b([a-z][a-z0-9-]*(?:\\.[a-z0-9-]+)+)\\s*(?:defaults?\\s+to|默认|=|:)\\s*(true|false)\\b");
         for(var row:docs) {
-            var matcher=setting.matcher(row.excerpt());
-            while(matcher.find()) {
-                String key=Objects.toString(row.softwareVersion(),"")+":"+matcher.group(1).toLowerCase(Locale.ROOT);
-                String value=matcher.group(2).toLowerCase(Locale.ROOT);
-                var prior=values.putIfAbsent(key,value);
-                if(prior!=null && !prior.equals(value)) return true;
+            String version=Objects.toString(row.softwareVersion(),"");
+            if(conflicts(values,version,row.excerpt())) return true;
+            if(row.unitId()!=null) for(var unit:units) {
+                if(unit.unit().id().equals(row.unitId()) && conflicts(values,version,String.join("\n",unit.unit().keyPoints())))
+                    return true;
             }
         }
         return false;
     }
 
-    boolean current(KnowledgeHubSearch.Evidence evidence) { return hub.current(evidence); }
+    private static boolean conflicts(Map<String,String> values,String version,String text) {
+        var setting=Pattern.compile("(?i)\\b([a-z][a-z0-9-]*(?:\\.[a-z0-9-]+)+)\\s*(?:defaults?\\s+to|默认|=|:)\\s*(true|false)\\b");
+        var matcher=setting.matcher(text);
+        while(matcher.find()){
+            String key=version+":"+matcher.group(1).toLowerCase(Locale.ROOT);
+            String value=matcher.group(2).toLowerCase(Locale.ROOT);
+            var prior=values.putIfAbsent(key,value);
+            if(prior!=null && !prior.equals(value)) return true;
+        }
+        return false;
+    }
+
+    public boolean current(KnowledgeHubSearch.Evidence evidence) { return hub.current(evidence); }
 }
