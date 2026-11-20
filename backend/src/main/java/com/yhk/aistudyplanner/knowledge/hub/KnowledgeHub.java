@@ -281,6 +281,15 @@ public class KnowledgeHub {
 
     @Transactional
     public void feedback(String id, Feedback input) {
+        feedback(id,input,false);
+    }
+
+    @Transactional
+    public void correctFeedback(String id,Feedback input) {
+        feedback(id,input,true);
+    }
+
+    private void feedback(String id, Feedback input, boolean correction) {
         var candidate = version(id);
         var document = document(candidate.documentId(),true);
         if (document.owner()!=null || !id.equals(document.active())
@@ -289,12 +298,42 @@ public class KnowledgeHub {
         long actor = auth.currentUserId();
         String environment = input.environment()==null ? "" : EvidenceText.normalize(input.environment().strip()).replaceAll("\\s+"," ");
         if (environment.length()>80 || !environment.matches("[a-z0-9 ._+/-]*")) throw error(ErrorCode.VALIDATION_ERROR);
-        if (db.queryForObject("SELECT COUNT(*) FROM knowledge_feedback WHERE version_id=? AND user_id=?",Integer.class,id,actor)>0)
-            throw error(ErrorCode.KNOWLEDGE_CONFLICT);
-        db.update("""
-                INSERT INTO knowledge_feedback(version_id,user_id,category,environment,query_type,ordinal,created_at)
-                VALUES(?,?,?,?,?,?,?)
-                """,id,actor,input.category().name(),environment,input.queryType().name(),input.ordinal(),now());
+        var previous=db.query("SELECT environment,query_type FROM knowledge_feedback WHERE version_id=? AND user_id=? FOR UPDATE",
+                (r,n)->new Signal(id,r.getString(1),QueryType.valueOf(r.getString(2)),0),id,actor);
+        if (correction && previous.isEmpty()) throw error(ErrorCode.RESOURCE_NOT_FOUND);
+        if (!correction && !previous.isEmpty()) throw error(ErrorCode.KNOWLEDGE_CONFLICT);
+        if (correction) {
+            db.update("""
+                    UPDATE knowledge_feedback SET category=?,environment=?,query_type=?,ordinal=?,created_at=?
+                    WHERE version_id=? AND user_id=?
+                    """,input.category().name(),environment,input.queryType().name(),input.ordinal(),now(),id,actor);
+            var old=previous.get(0);
+            reconcileCase(id,old.environment(),old.queryType());
+        } else {
+            db.update("""
+                    INSERT INTO knowledge_feedback(version_id,user_id,category,environment,query_type,ordinal,created_at)
+                    VALUES(?,?,?,?,?,?,?)
+                    """,id,actor,input.category().name(),environment,input.queryType().name(),input.ordinal(),now());
+        }
+        reconcileCase(id,environment,input.queryType());
+    }
+
+    private void reconcileCase(String version,String environment,QueryType type) {
+        if (environment.isBlank()) return;
+        // The owning document is locked while recording and aggregating feedback.
+        int votes=db.queryForList("""
+                SELECT user_id FROM knowledge_feedback WHERE version_id=? AND environment=? AND query_type=?
+                AND category<>'HELPFUL' AND created_at>=? FOR UPDATE
+                """,Long.class,version,environment,type.name(),now().minusDays(30)).size();
+        if (votes>=feedbackThreshold) {
+            db.update("""
+                    INSERT INTO knowledge_review_case(id,version_id,environment,query_type,distinct_users,state,opened_at,updated_at)
+                    VALUES(?,?,?,?,?,'OPEN',?,?) ON DUPLICATE KEY UPDATE distinct_users=?
+                    """,UUID.randomUUID().toString(),version,environment,type.name(),votes,now(),now(),votes);
+        } else {
+            db.update("UPDATE knowledge_review_case SET distinct_users=? WHERE version_id=? AND environment=? AND query_type=?",
+                    votes,version,environment,type.name());
+        }
     }
 
     List<Signal> signals() {
@@ -308,7 +347,7 @@ public class KnowledgeHub {
                 now().minusDays(30),feedbackThreshold);
     }
 
-    private Document document(String id, boolean lock) {
+    Document document(String id, boolean lock) {
         return one(db.query("SELECT * FROM knowledge_document WHERE id=?" + (lock?" FOR UPDATE":""),
                 (r,n)->new Document(r.getString("id"),r.getObject("owner_id",Long.class),r.getString("source_id"),
                         r.getString("origin"),r.getString("unit_id"),KnowledgeDomain.valueOf(r.getString("domain")),r.getString("active_version")),id));

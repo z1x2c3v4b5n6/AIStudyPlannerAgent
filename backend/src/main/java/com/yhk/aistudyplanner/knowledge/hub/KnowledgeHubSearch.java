@@ -90,17 +90,26 @@ public class KnowledgeHubSearch {
                 successful>0?OnlineStatus.NO_RELEVANT_EVIDENCE:OnlineStatus.UNAVAILABLE,trigger);
     }
 
-    List<Evidence> local(Query query) {
+    List<Evidence> local(Query query) { return local(query,null); }
+
+    List<Evidence> historical(Query query,String versionId) { return local(query,versionId); }
+
+    private List<Evidence> local(Query query,String versionId) {
         var terms=EvidenceText.terms(query.query());
         if(terms.isEmpty()) return List.of();
         var sql=new StringBuilder("""
                 SELECT CASE WHEN d.owner_id IS NULL THEN 'PUBLIC' ELSE 'PRIVATE' END visibility,
                        v.id,c.ordinal,v.title,c.heading,c.start_line,c.excerpt,s.name,d.origin,v.software_version,d.unit_id,v.ingest_kind,v.created_at,d.id
-                FROM knowledge_document d JOIN knowledge_document_version v ON v.id=d.active_version AND v.document_id=d.id
+                FROM knowledge_document d JOIN knowledge_document_version v ON v.document_id=d.id
                 JOIN knowledge_chunk c ON c.version_id=v.id LEFT JOIN knowledge_source s ON s.id=d.source_id
-                WHERE v.status='PUBLISHED' AND
+                WHERE
                 """);
         var args=new ArrayList<Object>();
+        if(versionId==null) sql.append(" v.id=d.active_version AND v.status='PUBLISHED' AND ");
+        else {
+            sql.append(" v.id=? AND d.owner_id IS NULL AND ");
+            args.add(versionId);
+        }
         switch(query.scope()==null?Scope.PUBLIC:query.scope()){
             case PUBLIC -> sql.append(" d.owner_id IS NULL");
             case PRIVATE -> { sql.append(" d.owner_id=?"); args.add(auth.currentUserId()); }

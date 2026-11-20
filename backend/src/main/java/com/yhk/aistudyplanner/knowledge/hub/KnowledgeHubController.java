@@ -40,6 +40,12 @@ class KnowledgeHubController {
         return ApiResponse.success(null);
     }
 
+    @PutMapping("/versions/{id}/feedback")
+    ApiResponse<Void> correctFeedback(@PathVariable UUID id,@Valid @RequestBody KnowledgeHub.Feedback input) {
+        hub.correctFeedback(id.toString(),input);
+        return ApiResponse.success(null);
+    }
+
     @GetMapping("/manage/sources")
     ApiResponse<?> sources() { return ApiResponse.success(hub.sources()); }
     @PostMapping("/manage/sources")
