@@ -35,9 +35,11 @@ public class KnowledgeHubSearch {
     private final OfficialDocuments collector;
     private final StringRedisTemplate redis;
     private final Clock clock;
+    private final DocumentRanking.Strategy ranking;
 
     KnowledgeHubSearch(JdbcTemplate db, AuthSessionService auth, KnowledgeRetriever structured, KnowledgeSearchProvider provider,
-                       OfficialDocuments collector, StringRedisTemplate redis, Clock clock) {
+                       OfficialDocuments collector, StringRedisTemplate redis, Clock clock,
+                       @org.springframework.beans.factory.annotation.Value("${app.knowledge.document-ranking:LEGACY}") DocumentRanking.Strategy ranking) {
         this.db=db;
         this.auth=auth;
         this.structured=structured;
@@ -45,6 +47,7 @@ public class KnowledgeHubSearch {
         this.collector=collector;
         this.redis=redis;
         this.clock=clock;
+        this.ranking=ranking;
     }
 
     public List<Evidence> publicEvidence(String query, KnowledgeDomain domain) {
@@ -152,23 +155,14 @@ public class KnowledgeHubSearch {
         return db.queryForObject(sql,Integer.class,args.toArray())==1;
     }
 
-    private static List<Evidence> sorted(List<Evidence> evidence,int limit) {
-        return evidence.stream().sorted(Comparator.comparingInt(Evidence::score).reversed()
-                .thenComparing(Evidence::title).thenComparing(Evidence::versionId,Comparator.nullsLast(String::compareTo))
-                .thenComparingInt(Evidence::ordinal)).limit(limit).toList();
+    private List<Evidence> sorted(List<Evidence> evidence,int limit) {
+        return DocumentRanking.rank(ranking,evidence,limit);
     }
 
-    private static Optional<Evidence> score(Stored row,List<String> terms) {
-        String title=EvidenceText.normalize(row.title()+" "+row.heading());
-        String body=EvidenceText.normalize(row.excerpt());
-        var matches=new ArrayList<String>();
-        int score=0;
-        for(var term:terms) {
-            int points=title.contains(term)?4:body.contains(term)?1:0;
-            if(points>0) { matches.add(term); score+=points; }
-        }
-        return score==0?Optional.empty():Optional.of(new Evidence(row.scope(),row.documentId(),row.versionId(),row.ordinal(),row.title(),
+    private Optional<Evidence> score(Stored row,List<String> terms) {
+        var match=DocumentRanking.score(ranking,row.title(),row.heading(),row.excerpt(),row.ingestKind(),terms);
+        return match.points()==0?Optional.empty():Optional.of(new Evidence(row.scope(),row.documentId(),row.versionId(),row.ordinal(),row.title(),
                 row.heading(),row.line(),row.excerpt(),row.source(),row.url(),row.softwareVersion(),row.unitId(),row.ingestKind(),
-                row.collectedAt(),List.copyOf(matches),score));
+                row.collectedAt(),match.terms(),match.points()));
     }
 }
