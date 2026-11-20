@@ -51,8 +51,10 @@ public class KnowledgeHubSearch {
         return local(new Query(query,domain,null,null,null,Scope.PUBLIC,false)).stream().limit(2).toList();
     }
 
-    Result search(Query query) {
-        var published=local(query);
+    Result search(Query query) { return search(query, evidence->true); }
+
+    Result search(Query query, java.util.function.Predicate<Evidence> relevant) {
+        var published=local(query).stream().filter(relevant).toList();
         var pack=query.scope()==Scope.PRIVATE || query.softwareVersion()!=null || query.sourceId()!=null || query.collectedAfter()!=null
                 ? List.<KnowledgeSearchResult>of()
                 : structured.search(new KnowledgeSearchRequest(query.query(),query.domain(),5));
@@ -80,7 +82,7 @@ public class KnowledgeHubSearch {
                 for(var chunk:EvidenceText.split(page.title(),page.text())) {
                     var row=new Stored("ONLINE",null,null,chunk.ordinal(),page.title(),chunk.heading(),chunk.line(),
                             chunk.excerpt(),source.name(),source.url(),source.softwareVersion(),null,"OFFICIAL_FETCH",LocalDateTime.now(clock));
-                    score(row,EvidenceText.terms(query.query())).ifPresent(evidence::add);
+                    score(row,EvidenceText.terms(query.query())).filter(relevant).ifPresent(evidence::add);
                 }
             } catch (BusinessException unavailable) {
                 // Preserve local evidence if any configured endpoint fails.

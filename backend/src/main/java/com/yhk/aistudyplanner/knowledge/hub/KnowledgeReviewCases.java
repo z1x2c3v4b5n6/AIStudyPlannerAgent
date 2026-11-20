@@ -61,7 +61,9 @@ class KnowledgeReviewCases {
         try {
             var observed=hub.stageCapture(source,collector.fetch(source),null);
             hub.recordCheck(source.id(),null);
-            if(!observed.hash().equals(old.hash())) {
+            if(!observed.hash().equals(old.hash()) && observed.id().equals(doc.active())) {
+                outcome="SOURCE_ALREADY_PUBLISHED";
+            } else if(!observed.hash().equals(old.hash())) {
                 state="CANDIDATE_READY";
                 candidate=observed.id();
                 outcome="SOURCE_CHANGED";

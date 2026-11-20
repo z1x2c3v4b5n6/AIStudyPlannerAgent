@@ -29,18 +29,18 @@ public class RagRetrieval {
         String effective=version==null || version.isBlank()?implicitVersion(query):EvidenceText.normalize(version.strip());
         String searchable=searchable(query);
         var result=hub.search(new KnowledgeHubSearch.Query(searchable,domain,effective,null,null,
-                KnowledgeHubSearch.Scope.valueOf((scope==null?Scope.PUBLIC:scope).name()),online));
+                KnowledgeHubSearch.Scope.valueOf((scope==null?Scope.PUBLIC:scope).name()),online),
+                row->relevant(searchable,row) && (effective==null || effective.equalsIgnoreCase(row.softwareVersion())));
         var docs=new ArrayList<KnowledgeHubSearch.Evidence>();
         docs.addAll(result.published());
         docs.addAll(result.online());
-        docs.removeIf(row->!relevant(searchable,row) || effective!=null && !effective.equalsIgnoreCase(row.softwareVersion()));
         docs.sort(Comparator.comparingInt(KnowledgeHubSearch.Evidence::score).reversed()
                 .thenComparing(row->"OFFICIAL_FETCH".equals(row.ingestKind())?0:1)
                 .thenComparing(row->Objects.toString(row.versionId(),row.url())).thenComparingInt(KnowledgeHubSearch.Evidence::ordinal));
         var versions=new TreeSet<String>();
         docs.stream().map(KnowledgeHubSearch.Evidence::softwareVersion).filter(Objects::nonNull).forEach(versions::add);
         String caution=null;
-        if ("LATEST".equals(result.trigger()) && docs.stream().noneMatch(row->"ONLINE".equals(row.scope()) && row.softwareVersion()!=null)) {
+        if ("LATEST".equals(result.trigger()) && (effective==null || docs.stream().noneMatch(row->"ONLINE".equals(row.scope())))) {
             caution="LATEST_UNVERIFIED";
         } else if (effective==null && versions.size()>1) {
             caution="AMBIGUOUS_VERSION";
