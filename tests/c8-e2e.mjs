@@ -6,6 +6,7 @@ import { setTimeout } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { verifyKnowledgeHub } from './c10-e2e.mjs'
+import { verifyEvidenceRag, verifyLiveRag } from './c11-e2e.mjs'
 
 const database = process.env.DB_URL ?? ''
 assert.match(database, /^jdbc:mysql:\/\/(127\.0\.0\.1|localhost):\d+\/[a-zA-Z0-9_]+_test(?:\?|$)/,
@@ -22,7 +23,15 @@ const providerTrace = []
 function modelFixture(request) {
   const last = request.messages.at(-1)
   let message
-  if (request.response_format?.type === 'json_object') {
+  let rag
+  try { rag=JSON.parse(last.content) } catch { /* Agent turns may be ordinary text. */ }
+  if (rag?.question && Array.isArray(rag.untrustedEvidence)) {
+    const evidence=rag.untrustedEvidence[0]
+    const content={claims:evidence?[{statement:'请按照该版本的官方说明核对配置。',
+      evidenceId:rag.question.includes('unknowncitation')?'E999':evidence.id,quote:evidence.text.slice(0,120)}]:[]}
+    message={role:'assistant',content:JSON.stringify(content)}
+  } else if (request.response_format?.type === 'json_object') {
+    for(const block of rag?.untrustedDocumentEvidence || []) providerTrace.push('c11-path:'+block.versionId)
     const topic = 'Spring Boot 自动配置'
     message = { role: 'assistant', content: JSON.stringify({
       title: 'Spring Boot 一周复习', summary: '验证自动配置。',
@@ -423,10 +432,12 @@ try {
   await page.getByText(candidate.topic, {exact: true}).waitFor()
   report.push('C-9 Chromium: authenticated learning insights and actual review data')
   await verifyKnowledgeHub({a,b,account,request,page,frontend,report})
+  if (!live) await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
+  if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
   assert.deepEqual(pageErrors, [])
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
 } finally {
-  console.log(JSON.stringify({ dataset: 'c8-c10-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
+  console.log(JSON.stringify({ dataset: 'c8-c11-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
     passedChecks: report.length, report, providerTrace, billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()

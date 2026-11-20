@@ -43,6 +43,16 @@ public class LearningPathAiService {
         this.properties=properties;this.gateways=gateways;this.prompts=prompts;this.mapper=mapper;this.subjects=subjects;this.session=session;this.clock=clock;
         this.knowledgeRetriever=knowledgeRetriever;this.knowledgeQueryBuilder=knowledgeQueryBuilder;this.knowledgeContextFormatter=knowledgeContextFormatter;
     }
+    private com.yhk.aistudyplanner.knowledge.hub.RagRetrieval rag;
+    private com.yhk.aistudyplanner.knowledge.hub.EvidenceContextBuilder evidenceBuilder;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void usePublishedEvidence(com.yhk.aistudyplanner.knowledge.hub.RagRetrieval rag,
+                              com.yhk.aistudyplanner.knowledge.hub.EvidenceContextBuilder evidenceBuilder) {
+        this.rag=rag;
+        this.evidenceBuilder=evidenceBuilder;
+    }
+
     public LearningPathDraftView generate(LearningPathGenerateRequest request){
         LocalDate today=LocalDate.now(clock); LocalDate start=request.startDate()==null?today:request.startDate();
         if(start.isBefore(today))throw new BusinessException(ErrorCode.PLAN_DATE_IN_PAST);
@@ -57,13 +67,38 @@ public class LearningPathAiService {
         LOGGER.info("Learning Path knowledge retrieval completed: domain={}, resultCount={}, contextUnits={}, contextCharacters={}",
                 retrievalQuery.domain()==null?"ALL":retrievalQuery.domain(),knowledgeResults.size(),knowledgeContext.unitCount(),knowledgeContext.characterCount());
         if(LOGGER.isDebugEnabled())LOGGER.debug("Learning Path knowledge context unitIds={}",knowledgeContext.unitIds());
-        String userPrompt=prompts.user(request,today,clock.getZone().getId(),knowledgeContext.text());
+        var documents=publishedEvidence(retrievalQuery,request.softwareVersion(),knowledgeResults);
+        String userPrompt=prompts.user(request,today,clock.getZone().getId(),knowledgeContext.text(),documents);
         try{return generateValidated(gateway,prompts.system(),userPrompt,request,start);}
         catch(BusinessException exception){
             if(exception.getErrorCode()!=ErrorCode.LEARNING_PATH_INVALID&&exception.getErrorCode()!=ErrorCode.AI_RESPONSE_INVALID)throw exception;
             return generateValidated(gateway,prompts.retrySystem(),userPrompt,request,start);
         }
     }
+    private List<com.yhk.aistudyplanner.knowledge.hub.EvidenceContextBuilder.Block> publishedEvidence(
+            LearningPathKnowledgeQueryBuilder.RetrievalQuery query, String version, List<KnowledgeSearchResult> units) {
+        if (rag==null) return List.of();
+        try {
+            var result=rag.retrieve(query.text(),query.domain(),version,
+                    com.yhk.aistudyplanner.knowledge.hub.RagRetrieval.Scope.PUBLIC,false);
+            if (result.caution()!=null) {
+                LOGGER.info("Learning Path evidence omitted: {}",result.caution());
+                return List.of();
+            }
+            if (com.yhk.aistudyplanner.knowledge.hub.RagRetrieval.conflictWithStructure(result.documents(),units)) {
+                LOGGER.info("Learning Path document and structured knowledge disagree; use existing C-4 context");
+                return List.of();
+            }
+            var context=evidenceBuilder.build(result,false,false);
+            var blocks=context.blocks().stream().filter(block->rag.current(context.documents().get(block.id()))).toList();
+            LOGGER.info("Learning Path public evidence versionIds={}",blocks.stream().map(block->block.versionId()).distinct().toList());
+            return blocks;
+        } catch (org.springframework.dao.DataAccessException error) {
+            LOGGER.warn("Learning Path document retrieval unavailable");
+            return List.of();
+        }
+    }
+
     private LearningPathDraftView generateValidated(PlanningGateway gateway,String systemPrompt,String userPrompt,
             LearningPathGenerateRequest request,LocalDate start){
         String raw;

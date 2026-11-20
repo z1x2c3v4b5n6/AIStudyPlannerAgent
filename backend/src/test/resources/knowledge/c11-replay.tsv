@@ -1,0 +1,6 @@
+# query|correctFact|C4quote|publicQuote|onlineQuote
+Java synchronized monitor|锁由对象关联|Each object has an associated monitor.|Each object has an associated monitor.|
+Spring Boot proxy self-invocation|自调用绕开代理||A self-invocation does not go through the proxy.|
+Spring AI tool callbacks|先声明工具回调|||Tool callbacks are registered before calling the chat model.
+RAG retrieval grounding|先检索再生成|Retrieval supplies evidence to the model.|Retrieval supplies evidence to the model.|
+unrelated cooking recipe||||

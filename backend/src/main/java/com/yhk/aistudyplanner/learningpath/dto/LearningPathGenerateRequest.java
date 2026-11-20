@@ -11,4 +11,10 @@ public record LearningPathGenerateRequest(
         @Min(15) @Max(720) Integer dailyMinutes,
         LocalDate startDate,
         LocalDate targetDate,
-        @Size(max=1000) String preferences) {}
+        @Size(max=1000) String preferences,
+        @Size(max=80) String softwareVersion) {
+    public LearningPathGenerateRequest(String requirement, Long subjectId, String currentLevel, String targetLevel,
+                                       Integer dailyMinutes, LocalDate startDate, LocalDate targetDate, String preferences) {
+        this(requirement,subjectId,currentLevel,targetLevel,dailyMinutes,startDate,targetDate,preferences,null);
+    }
+}
