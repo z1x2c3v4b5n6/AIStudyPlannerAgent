@@ -20,12 +20,12 @@ public class KnowledgeHubSearch {
     public enum OnlineStatus { LOCAL_ONLY, DISABLED, RATE_LIMITED, NO_SOURCE, NO_RELEVANT_EVIDENCE, AVAILABLE, UNAVAILABLE }
     record Query(@NotBlank @Size(max=300) String query, KnowledgeDomain domain, @Size(max=80) String softwareVersion,
                  @Pattern(regexp="[0-9a-f-]{36}") String sourceId, LocalDate collectedAfter, Scope scope, boolean online) {}
-    public record Evidence(String scope, String versionId, int ordinal, String title, String heading, int line,
+    public record Evidence(String scope, String documentId, String versionId, int ordinal, String title, String heading, int line,
                            String excerpt, String source, String url, String softwareVersion, String unitId, String ingestKind,
                            LocalDateTime collectedAt, List<String> matchedTerms, int score) {}
-    record Result(List<KnowledgeSearchResult> structured, List<Evidence> published, List<Evidence> online,
+    public record Result(List<KnowledgeSearchResult> structured, List<Evidence> published, List<Evidence> online,
                   OnlineStatus onlineStatus, String trigger) {}
-    private record Stored(String scope, String versionId, int ordinal, String title, String heading, int line,
+    private record Stored(String scope, String documentId, String versionId, int ordinal, String title, String heading, int line,
                           String excerpt,String source,String url,String softwareVersion,String unitId,String ingestKind,LocalDateTime collectedAt) {}
 
     private final JdbcTemplate db;
@@ -78,7 +78,7 @@ public class KnowledgeHubSearch {
                 var page=collector.fetch(source);
                 successful++;
                 for(var chunk:EvidenceText.split(page.title(),page.text())) {
-                    var row=new Stored("ONLINE",null,chunk.ordinal(),page.title(),chunk.heading(),chunk.line(),
+                    var row=new Stored("ONLINE",null,null,chunk.ordinal(),page.title(),chunk.heading(),chunk.line(),
                             chunk.excerpt(),source.name(),source.url(),source.softwareVersion(),null,"OFFICIAL_FETCH",LocalDateTime.now(clock));
                     score(row,EvidenceText.terms(query.query())).ifPresent(evidence::add);
                 }
@@ -95,7 +95,7 @@ public class KnowledgeHubSearch {
         if(terms.isEmpty()) return List.of();
         var sql=new StringBuilder("""
                 SELECT CASE WHEN d.owner_id IS NULL THEN 'PUBLIC' ELSE 'PRIVATE' END visibility,
-                       v.id,c.ordinal,v.title,c.heading,c.start_line,c.excerpt,s.name,d.origin,v.software_version,d.unit_id,v.ingest_kind,v.created_at
+                       v.id,c.ordinal,v.title,c.heading,c.start_line,c.excerpt,s.name,d.origin,v.software_version,d.unit_id,v.ingest_kind,v.created_at,d.id
                 FROM knowledge_document d JOIN knowledge_document_version v ON v.id=d.active_version AND v.document_id=d.id
                 JOIN knowledge_chunk c ON c.version_id=v.id LEFT JOIN knowledge_source s ON s.id=d.source_id
                 WHERE v.status='PUBLISHED' AND
@@ -118,10 +118,27 @@ public class KnowledgeHubSearch {
             args.addAll(List.of(match,match,match));
         }
         sql.append(") ORDER BY v.created_at DESC, v.id, c.ordinal LIMIT 240");
-        var rows=db.query(sql.toString(),(r,n)->new Stored(r.getString(1),r.getString(2),r.getInt(3),r.getString(4),
+        var rows=db.query(sql.toString(),(r,n)->new Stored(r.getString(1),r.getString(14),r.getString(2),r.getInt(3),r.getString(4),
                 r.getString(5),r.getInt(6),r.getString(7),r.getString(8),r.getString(9),r.getString(10),r.getString(11),r.getString(12),
                 r.getObject(13,LocalDateTime.class)),args.toArray());
         return sorted(rows.stream().flatMap(row->score(row,terms).stream()).toList(),8);
+    }
+
+    boolean current(Evidence evidence) {
+        if ("ONLINE".equals(evidence.scope())) {
+            OfficialDocuments.validate(evidence.url());
+            return true;
+        }
+        boolean personal = "PRIVATE".equals(evidence.scope());
+        var sql = """
+                SELECT COUNT(*) FROM knowledge_document d
+                JOIN knowledge_document_version v ON v.document_id=d.id AND v.id=d.active_version
+                JOIN knowledge_chunk c ON c.version_id=v.id
+                WHERE d.id=? AND v.id=? AND v.status='PUBLISHED' AND c.ordinal=? AND c.start_line=?
+                """ + (personal ? " AND d.owner_id=?" : " AND d.owner_id IS NULL");
+        var args = new ArrayList<Object>(List.of(evidence.documentId(),evidence.versionId(),evidence.ordinal(),evidence.line()));
+        if (personal) args.add(auth.currentUserId());
+        return db.queryForObject(sql,Integer.class,args.toArray())==1;
     }
 
     private static List<Evidence> sorted(List<Evidence> evidence,int limit) {
@@ -139,7 +156,7 @@ public class KnowledgeHubSearch {
             int points=title.contains(term)?4:body.contains(term)?1:0;
             if(points>0) { matches.add(term); score+=points; }
         }
-        return score==0?Optional.empty():Optional.of(new Evidence(row.scope(),row.versionId(),row.ordinal(),row.title(),
+        return score==0?Optional.empty():Optional.of(new Evidence(row.scope(),row.documentId(),row.versionId(),row.ordinal(),row.title(),
                 row.heading(),row.line(),row.excerpt(),row.source(),row.url(),row.softwareVersion(),row.unitId(),row.ingestKind(),
                 row.collectedAt(),List.copyOf(matches),score));
     }
