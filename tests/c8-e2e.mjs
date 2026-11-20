@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { setTimeout } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
+import { createProviderBudget } from './c12-provider.mjs'
 import { verifyKnowledgeHub } from './c10-e2e.mjs'
 import { verifyEvidenceRag, verifyLiveRag } from './c11-e2e.mjs'
 
@@ -19,6 +20,8 @@ const api = 'http://localhost:8080/api/v1'
 const frontend = 'http://localhost:5173'
 const fixturePort = 18081
 const providerTrace = []
+const c12Live = live && process.env.C12_LIVE_DEEPSEEK === 'true'
+const providerBudget = c12Live ? createProviderBudget() : null
 
 function modelFixture(request) {
   const last = request.messages.at(-1)
@@ -92,6 +95,12 @@ const fixture = createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(modelFixture(request)))
       return
     }
+    if (providerBudget) {
+      const forwarded = await providerBudget.forward(request)
+      providerTrace.push(forwarded.event)
+      res.writeHead(forwarded.status, { 'content-type': 'application/json' }).end(JSON.stringify(forwarded.data))
+      return
+    }
     const started = performance.now()
     const upstream = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST', headers: { authorization: 'Bearer ' + process.env.DEEPSEEK_API_KEY,
@@ -129,6 +138,7 @@ const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'previ
   env: process.env,
 })
 let browser
+let completed = false
 async function ready(url) {
   for (let n = 0; n < 90; n++) {
     try { await fetch(url); return } catch { await setTimeout(500) }
@@ -272,6 +282,29 @@ try {
     assert.ok(profileReply.messages.at(-1).tools.some(tool =>
       tool.name === 'get_learning_profile' && tool.success && tool.data?.activity?.totalMinutes === 30))
     report.push('Live provider: C-9 profile tool selection, accepted arguments and actual tool result verified')
+  }
+
+  if (providerBudget) {
+    const readback = await providerBudget.forward({ model: process.env.DEEPSEEK_MODEL,
+      messages: [{ role: 'user', content: 'Return only the JSON object {"ready":true}.' }],
+      max_tokens: 256, response_format: { type: 'json_object' } })
+    providerTrace.push(readback.event)
+    assert.equal(readback.status, 200)
+    assert.equal(JSON.parse(readback.data.choices[0].message.content).ready, true)
+    const editDay=date(3)
+    const current=await request(a,'/tasks/'+task.id)
+    const reply=await request(a,base+'/messages','POST',{ text:
+      '请先调用 open_tasks 查询标题“Spring Boot 条件装配”的任务，再调用 propose_task_update 生成日期变更草案。将真实任务的 plannedDate 改为 '+editDay+'。保留其他字段，等待我确认。' })
+    const successful=reply.messages.at(-1).tools.filter(tool=>tool.success)
+    assert.ok(successful.some(tool=>tool.name==='open_tasks'))
+    assert.ok(reply.actions.some(item=>item.type==='propose_task_update' && item.status==='PENDING'))
+    const pending=reply.actions.findLast(item=>item.type==='propose_task_update' && item.status==='PENDING')
+    assert.equal((await request(a,'/tasks/'+task.id)).plannedDate,current.plannedDate)
+    const confirm=()=>request(a,base+'/actions/'+pending.id+'/decision','POST',{confirm:true,digest:pending.digest})
+    await confirm()
+    await confirm()
+    assert.equal((await request(a,'/tasks/'+task.id)).plannedDate,editDay)
+    report.push('C-12 live model: structured JSON, multi-tool read and user-approved update with duplicate receipt')
   }
 
   browser = await chromium.launch({ headless: true, executablePath: process.env.C8_CHROMIUM_PATH || undefined })
@@ -435,10 +468,11 @@ try {
   if (!live) await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
   if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
   assert.deepEqual(pageErrors, [])
+  completed = true
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
 } finally {
   console.log(JSON.stringify({ dataset: 'c8-c11-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
-    passedChecks: report.length, report, providerTrace, billing: live ? 'use returned usage and account pricing' : 'zero' }))
+    status: completed ? 'PASS' : 'FAIL', passedChecks: report.length, report, providerTrace, budget: providerBudget?.summary(), billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()
   preview.kill()
