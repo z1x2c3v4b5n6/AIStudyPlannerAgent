@@ -46,10 +46,24 @@ class OfficialDocuments {
 
     record Captured(String title, String text) {}
 
+    private record Payload(String text, String contentType) {}
+
     Captured fetch(KnowledgeHub.Source source) {
+        var page=download(source.url());
+        return page.contentType().startsWith("text/html") ? cleanHtml(page.text(),source.name())
+                : new Captured(source.name(),checked(page.text()));
+    }
+
+    String catalog(String url) {
+        var page=download(url);
+        if(!page.contentType().startsWith("text/html")) throw unavailable();
+        return page.text();
+    }
+
+    private Payload download(String url) {
         if (!enabled || !concurrent.tryAcquire()) throw unavailable();
         try {
-            var request = HttpRequest.newBuilder(validate(source.url())).GET().timeout(Duration.ofSeconds(6))
+            var request = HttpRequest.newBuilder(validate(url)).GET().timeout(Duration.ofSeconds(6))
                     .header("Accept", "text/html,text/plain,text/markdown")
                     .header("User-Agent","AIStudyPlannerKnowledgeHub/1.0").build();
             var content = http.sendAsync(request, info -> {
@@ -68,8 +82,7 @@ class OfficialDocuments {
             }
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .decode(ByteBuffer.wrap(result.body())).toString();
-            return result.headers().firstValue("Content-Type").orElse("").toLowerCase(Locale.ROOT).startsWith("text/html")
-                    ? cleanHtml(text,source.name()) : new Captured(source.name(),checked(text));
+            return new Payload(text,result.headers().firstValue("Content-Type").orElse("").toLowerCase(Locale.ROOT));
         } catch (ExecutionException | CharacterCodingException failure) {
             throw unavailable();
         } finally {
