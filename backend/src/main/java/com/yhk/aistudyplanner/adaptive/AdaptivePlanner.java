@@ -21,11 +21,12 @@ final class AdaptivePlanner {
         for (int offset=0; offset<constraints.days(); offset++) {
             LocalDate date = constraints.start().plusDays(offset);
             var blocks = occupied.stream().filter(slot -> slot.start().toLocalDate().equals(date)).toList();
-            days.put(date, new Day(date, constraints.dailyMinutes(), blocks, constraints.locked(), constraints.planningTime()));
+            days.put(date, new Day(date, constraints.dailyMinutes(), blocks, constraints.locked()));
         }
-        var ordering = Comparator.<Task>comparingInt(task -> Objects.equals(task.subjectId(), constraints.preferredSubjectId()) ? 0 : 1)
-                .thenComparing(Comparator.comparingInt(Task::priority).reversed())
-                .thenComparing(Task::dueAt, Comparator.nullsLast(Comparator.naturalOrder())).thenComparingLong(Task::id);
+        var ordering = Comparator.comparingInt(Task::priority).reversed()
+                .thenComparing(Task::dueAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(task -> !Objects.equals(task.subjectId(),constraints.preferredSubjectId()))
+                .thenComparingLong(Task::id);
         var queue = new ArrayList<>(candidates.stream().sorted(ordering).toList());
         var assigned = new HashMap<Long,Placement>();
         var omitted = new ArrayList<Omission>();
@@ -49,7 +50,8 @@ final class AdaptivePlanner {
                 var selected = options.stream().map(day -> day.find(task, previous == null ? null : previous.end(),
                         constraints.planningTime())).filter(Objects::nonNull).findFirst().orElse(null);
                 if (selected == null) {
-                    omitted.add(new Omission(task.id(), task.title(), "在预算、空闲时间和有效截止日期内放不下"));
+                    omitted.add(new Omission(task.id(), task.title(), omissionReason(task,constraints,options,
+                            previous==null?null:previous.end())));
                 } else {
                     assigned.put(task.id(),selected);
                     var day = days.get(selected.start().toLocalDate());
@@ -75,12 +77,24 @@ final class AdaptivePlanner {
                         && item.task().dueAt().isBefore(constraints.planningTime())).count());
     }
 
+    private static String omissionReason(Task task,Constraints constraints,List<Day> days,LocalDateTime prerequisiteEnd) {
+        int minutes=Math.max(15,task.minutes());
+        if(minutes>constraints.dailyMinutes()) return "完整任务时长超过单日预算";
+        boolean deadline=task.dueAt()!=null && !task.dueAt().isBefore(constraints.planningTime())
+                || task.goalDate()!=null && !task.goalDate().isBefore(constraints.planningTime().toLocalDate());
+        if(deadline && days.stream().noneMatch(day -> new Day(day.date,day.capacity,List.of(),List.of())
+                .find(task,prerequisiteEnd,constraints.planningTime())!=null))
+            return "有效截止日期前无法保留完整时段";
+        if(days.stream().noneMatch(day->day.capacity-day.used>=minutes)) return "各日剩余学习预算不足";
+        return "可用时段与已有安排、锁定时段或截止时间不兼容";
+    }
+
     private static final class Day {
         final LocalDate date;
         final int capacity;
         final List<Slot> blocks = new ArrayList<>();
         int used;
-        Day(LocalDate date, int capacity, List<Slot> occupied, List<Slot> locks, LocalDateTime now) {
+        Day(LocalDate date, int capacity, List<Slot> occupied, List<Slot> locks) {
             this.date=date; this.capacity=capacity;
             blocks.addAll(occupied);
             blocks.addAll(locks.stream().filter(slot -> slot.start().toLocalDate().equals(date)).toList());

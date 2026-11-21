@@ -38,6 +38,34 @@ class AdaptivePlannerTest {
                 new AdaptivePlanner.Constraints(date,1,30,null,List.of(),now),tasks,List.of()).scheduled().size());
     }
 
+    @Test void subjectPreferenceNeverUsesTheOnlySlotAheadOfHigherPriority() {
+        var preferred=new AdaptivePlanner.Task(1,1,"选定科目",2,30,date,null,null,now,null,false);
+        var urgent=new AdaptivePlanner.Task(2,2,"临期重要任务",4,30,date,date.atTime(9,30),null,now,null,false);
+        for(var strategy:AdaptivePlanner.Strategy.values()){
+            var rules=new AdaptivePlanner.Constraints(date,1,30,1L,List.of(),now);
+            var plan=AdaptivePlanner.plan(strategy,rules,List.of(preferred,urgent),List.of());
+            assertEquals(List.of(2L),plan.scheduled().stream().map(slot->slot.task().id()).toList());
+            assertEquals(0,plan.changedDates());
+            assertEquals(30,plan.dailyMinutes().get(date));
+            assertEquals(urgent.dueAt(),plan.scheduled().get(0).end());
+            assertEquals("各日剩余学习预算不足",plan.omitted().get(0).reason());
+        }
+    }
+
+    @Test void oversizedAndDeadlineBlockedTasksExplainTheDifferentConstraints() {
+        var longTask=new AdaptivePlanner.Task(1,1,"过长",4,90,date,null,null,now,null,false);
+        var due=task(2,4,date,date.atTime(9,20),null);
+        var small=new AdaptivePlanner.Constraints(date,2,60,null,List.of(),now);
+        var plan=AdaptivePlanner.plan(AdaptivePlanner.Strategy.PRIORITY,small,List.of(longTask,due),List.of());
+        assertTrue(plan.scheduled().isEmpty());
+        assertEquals("完整任务时长超过单日预算",plan.omitted().stream().filter(item->item.taskId()==1).findFirst().orElseThrow().reason());
+        assertEquals("有效截止日期前无法保留完整时段",plan.omitted().stream().filter(item->item.taskId()==2).findFirst().orElseThrow().reason());
+        var larger=new AdaptivePlanner.Constraints(date,2,90,null,List.of(),now);
+        var recovered=AdaptivePlanner.plan(AdaptivePlanner.Strategy.MINIMAL,larger,List.of(longTask,due),List.of());
+        assertEquals(1,recovered.scheduled().get(0).task().id());
+        assertEquals(0,recovered.changedDates());
+    }
+
     private AdaptivePlanner.Task task(long id,int priority,LocalDate planned,LocalDateTime due,Long prerequisite) {
         return new AdaptivePlanner.Task(id,1,"任务"+id,priority,30,planned,due,null,now,prerequisite,false);
     }
