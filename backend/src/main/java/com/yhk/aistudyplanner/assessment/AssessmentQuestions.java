@@ -143,6 +143,25 @@ public class AssessmentQuestions {
         return rows.stream().map(row->checked(row,current(row))).toList();
     }
 
+    List<Version> practice(long owner,Set<String> units,String softwareVersion,Difficulty difficulty) {
+        var args=new ArrayList<Object>();
+        args.add(owner);args.add(softwareVersion);args.add(softwareVersion);
+        String level=difficulty==null?null:difficulty.name();
+        args.add(level);args.add(level);
+        String scope=units.isEmpty()?"":" AND q.unit_id IN ("+String.join(",",Collections.nCopies(units.size(),"?"))+")";
+        args.addAll(units);
+        String sql=SELECT+"""
+                WHERE (q.owner_id IS NULL OR q.owner_id=?) AND v.state='PUBLISHED'
+                AND (? IS NULL OR v.software_version=?) AND (? IS NULL OR v.difficulty=?)
+                """+scope+" ORDER BY v.id DESC LIMIT 250";
+        var rows=db.query(sql,this::read,args.toArray());
+        // With no explicit version, retain only topics whose eligible questions use one version.
+        var available=rows.stream().filter(row->current(row)!=null).toList();
+        var versions=new HashMap<String,Set<String>>();
+        for(var row:available) versions.computeIfAbsent(row.entry().unitId(),key->new HashSet<>()).add(row.entry().softwareVersion());
+        return available.stream().filter(row->versions.get(row.entry().unitId()).size()==1).toList();
+    }
+
     public Managed inspect(long versionId) {
         var row=version(versionId);
         requireManage(row);
