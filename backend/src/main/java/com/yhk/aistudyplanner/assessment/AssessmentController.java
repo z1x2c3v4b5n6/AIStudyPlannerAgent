@@ -16,10 +16,12 @@ class AssessmentController {
 
     private final AssessmentAssistance assistance;
 
+    private final AssessmentPerformance performance;
+
     AssessmentController(AssessmentQuestions questions,AssessmentGeneration generation,AssessmentSessions sessions,
-                         AssessmentAssistance assistance) {
+                         AssessmentAssistance assistance,AssessmentPerformance performance) {
         this.questions=questions; this.generation=generation; this.sessions=sessions;
-        this.assistance=assistance;
+        this.assistance=assistance; this.performance=performance;
     }
 
     @PostMapping("/generate")
@@ -55,6 +57,18 @@ class AssessmentController {
 
     @PostMapping("/sessions/{id}/cancel")
     ApiResponse<?> cancel(@PathVariable UUID id) { return ApiResponse.success(sessions.cancel(id)); }
+
+    @GetMapping("/performance")
+    ApiResponse<?> performance(@RequestParam(defaultValue="30") int days,@RequestParam(required=false) Long subjectId,
+                               @RequestParam(required=false) String unitId) {
+        return ApiResponse.success(performance.summary(days,subjectId,unitId));
+    }
+
+    @GetMapping("/wrong-answers")
+    ApiResponse<?> wrong(@RequestParam(required=false) Long subjectId,@RequestParam(required=false) String unitId,
+                         @RequestParam(defaultValue="1") int page) {
+        return ApiResponse.success(performance.wrong(subjectId,unitId,page));
+    }
 
     @GetMapping("/topics")
     ApiResponse<?> topics() { return ApiResponse.success(questions.topics()); }
