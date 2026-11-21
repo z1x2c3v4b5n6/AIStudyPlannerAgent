@@ -190,7 +190,7 @@ class WorkflowEngine {
     private WorkflowRun failed(long owner, WorkflowRun expected, WorkflowRun.Node node, ErrorCode error) {
         return locked(expected.id(), run -> {
             if (run.revision() != expected.revision() || terminal(run.status())) return run;
-            boolean retry = !Set.of("apply","adaptiveApply").contains(node.operation()) && node.attempts() < ATTEMPTS
+            boolean retry = !Set.of("apply","adaptiveApply","assessmentApply").contains(node.operation()) && node.attempts() < ATTEMPTS
                     && (error == AGENT_TIMEOUT || error == AI_PROVIDER_TIMEOUT || error == AI_PROVIDER_UNAVAILABLE
                         || error == AI_PROVIDER_RATE_LIMITED || error == INTERNAL_ERROR);
             return store.save(owner, run.change(node.finish(retry ? StepStatus.READY : StepStatus.FAILED, null,
