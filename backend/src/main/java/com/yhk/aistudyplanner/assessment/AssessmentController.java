@@ -9,7 +9,16 @@ import org.springframework.web.bind.annotation.*;
 class AssessmentController {
     private final AssessmentQuestions questions;
 
-    AssessmentController(AssessmentQuestions questions) { this.questions=questions; }
+    private final AssessmentGeneration generation;
+
+    AssessmentController(AssessmentQuestions questions,AssessmentGeneration generation) {
+        this.questions=questions; this.generation=generation;
+    }
+
+    @PostMapping("/generate")
+    ApiResponse<?> generate(@Valid @RequestBody AssessmentGeneration.Request request) {
+        return ApiResponse.success(generation.generate(request));
+    }
 
     @GetMapping("/topics")
     ApiResponse<?> topics() { return ApiResponse.success(questions.topics()); }
