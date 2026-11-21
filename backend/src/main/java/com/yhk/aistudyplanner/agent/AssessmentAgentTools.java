@@ -7,6 +7,7 @@ import com.yhk.aistudyplanner.adaptive.LearningReviews;
 import com.yhk.aistudyplanner.assessment.*;
 import com.yhk.aistudyplanner.common.exception.BusinessException;
 import com.yhk.aistudyplanner.knowledge.dto.KnowledgeSearchRequest;
+import com.yhk.aistudyplanner.knowledge.model.KnowledgeDomain;
 import com.yhk.aistudyplanner.knowledge.service.KnowledgeRetriever;
 import com.yhk.aistudyplanner.plan.entity.PlanStatus;
 import com.yhk.aistudyplanner.plan.service.StudyPlanService;
@@ -24,7 +25,7 @@ class AssessmentAgentTools {
     record Practice(@NotBlank @Size(max=100) String unitId,@Size(max=80) String softwareVersion,
                     @Positive Long subjectId,@Min(1) @Max(10) int count) {}
     record Review(@Size(max=100) String unitId,@Positive Long subjectId,@NotNull LocalDate start,
-                  @Min(15) @Max(720) int dailyMinutes) {}
+                  @Min(15) @Max(720) int dailyMinutes,KnowledgeDomain domain) {}
     private final AssessmentQuestions bank;
     private final AssessmentSessions sessions;
     private final AssessmentPerformance performance;
@@ -84,7 +85,8 @@ class AssessmentAgentTools {
         var today=LocalDate.now(clock);
         if(input.start().isBefore(today) || input.start().plusDays(6).isAfter(today.plusDays(30))
                 || input.dailyMinutes()<15 || input.dailyMinutes()>720) throw new BusinessException(VALIDATION_ERROR);
-        var weak=weak(new Query(30,input.subjectId(),input.unitId()));
+        var weak=weak(new Query(30,input.subjectId(),input.unitId())).stream()
+                .filter(t->input.domain()==null || input.domain().name().equals(bank.topic(t.unitId()).domain())).toList();
         var candidates=reviews.candidates(null).stream().filter(c->c.reviewTaskId()==null && c.subjectId()!=null
                 && c.cycleKey().startsWith("ASSESS-") && (input.subjectId()==null || input.subjectId().equals(c.subjectId()))
                 && weak.stream().anyMatch(t->AssessmentTopics.related(c.topic(),t.topic()))).toList();
@@ -95,7 +97,7 @@ class AssessmentAgentTools {
             if(page.total()>page.list().size()) throw new BusinessException(AGENT_LIMIT);
             int scheduled=page.list().stream().filter(p->p.status()!=PlanStatus.CANCELLED && p.status()!=PlanStatus.ABANDONED)
                     .mapToInt(p->p.plannedMinutes()).sum();
-            remaining.put(date,Math.max(0,input.dailyMinutes()-scheduled));
+            remaining.put(date,Math.max(0,input.dailyMinutes()-scheduled-reviews.unscheduledAssessmentMinutes(date)));
         }
         int minutes=Math.min(30,input.dailyMinutes());
         var selections=new ArrayList<LearningReviews.Selection>();
@@ -128,12 +130,16 @@ class AssessmentAgentTools {
         boolean practice=input.matches("(?s).*(测评|测验|测一测|检测.*掌握).*");
         boolean analyze=input.matches("(?s).*(薄弱|错题|答错).*");
         if(!review && !practice && !analyze) return null;
-        var hits=retriever.search(new KnowledgeSearchRequest(input,null,2));
+        String language=input.toLowerCase(Locale.ROOT);
+        KnowledgeDomain domain=language.matches("(?s).*\\b(java|spring)\\b.*") && !language.matches("(?s).*\\b(rag|spring ai)\\b.*")
+                ? KnowledgeDomain.JAVA_BACKEND:null;
+        var hits=retriever.search(new KnowledgeSearchRequest(input,domain,2));
         String unit=hits.isEmpty()?null:hits.get(0).unit().id();
         var output=json.createObjectNode().put("intent",review?"REVIEW":practice?"PRACTICE":"ANALYZE").put("unitId",unit);
         var start=LocalDate.now(clock).plusDays(1);
         if(input.contains("下周")) start=start.minusDays(1).with(TemporalAdjusters.next(DayOfWeek.MONDAY));
         output.put("start",start.toString());
+        if(domain!=null) output.put("domain",domain.name());
         var matcher=java.util.regex.Pattern.compile("(\\d{1,3})\\s*分钟").matcher(input);
         if(matcher.find()) output.put("budget",Integer.parseInt(matcher.group(1)));
         if(output.has("budget") && (output.path("budget").asInt()<15 || output.path("budget").asInt()>720))
@@ -144,8 +150,13 @@ class AssessmentAgentTools {
     Object readIntent(JsonNode input) {
         Long subject=input.hasNonNull("subjectId")?input.path("subjectId").asLong():null;
         String unit=input.path("unitId").asText(null);
-        var topics=summary(new Query(30,subject,unit)).topics().stream().limit(8).toList();
-        return Map.of("performance",topics,"wrongAnswers",performance.wrong(subject,unit,1).stream().limit(6).toList());
+        var topics=summary(new Query(30,subject,unit)).topics().stream().filter(t->inDomain(t.unitId(),input)).limit(8).toList();
+        return Map.of("performance",topics,"wrongAnswers",performance.wrong(subject,unit,1).stream()
+                .filter(t->inDomain(t.unitId(),input)).limit(6).toList());
+    }
+
+    private boolean inDomain(String unit,JsonNode input) {
+        return !input.hasNonNull("domain") || bank.topic(unit).domain().equals(input.path("domain").asText());
     }
 
     JsonNode previewIntent(JsonNode input) {
@@ -156,7 +167,8 @@ class AssessmentAgentTools {
                 if(unit==null) return json.createObjectNode().put("reason","请指定要练习的知识点");
                 return json.valueToTree(practice(new Practice(unit,null,subject,5)));
             }
-            return json.valueToTree(review(new Review(unit,subject,LocalDate.parse(input.path("start").asText()),input.path("budget").asInt())));
+            return json.valueToTree(review(new Review(unit,subject,LocalDate.parse(input.path("start").asText()),input.path("budget").asInt(),
+                    input.hasNonNull("domain")?KnowledgeDomain.valueOf(input.path("domain").asText()):null)));
         } catch(BusinessException ex) {
             if(Set.of(PLAN_DRAFT_EMPTY,RESOURCE_NOT_FOUND,VALIDATION_ERROR).contains(ex.getErrorCode()))
                 return json.createObjectNode().put("reason",ex.getErrorCode().message());

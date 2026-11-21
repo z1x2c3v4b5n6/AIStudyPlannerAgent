@@ -168,7 +168,7 @@ public class AssessmentQuestions {
         return managed(row);
     }
 
-    @Transactional
+    @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public Managed decide(long versionId,Decision decision) {
         var row=version(versionId);
         requireManage(row);

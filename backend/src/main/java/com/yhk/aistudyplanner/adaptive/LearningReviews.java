@@ -72,6 +72,19 @@ public class LearningReviews {
         return proposals.decide(id,"REVIEW",input.digest(),input.confirm()?"CONFIRM":"REJECT",this::applyReviewed);
     }
 
+    public int unscheduledAssessmentMinutes(LocalDate date) {
+        return jdbc.queryForObject("""
+                SELECT COALESCE(SUM(t.estimated_minutes),0)
+                FROM adaptive_review_cycle c JOIN study_task t ON t.id=c.task_id AND t.user_id=c.owner_id
+                WHERE c.owner_id=? AND c.cycle_key LIKE 'ASSESS-%' AND t.planned_date=?
+                  AND t.status IN ('TODO','IN_PROGRESS') AND NOT EXISTS (
+                    SELECT 1 FROM study_plan_item i JOIN study_plan p ON p.id=i.plan_id AND p.user_id=i.user_id
+                    WHERE i.task_id=t.id AND i.user_id=t.user_id AND p.plan_date=t.planned_date
+                      AND p.status NOT IN ('CANCELLED','ABANDONED') AND i.status<>'SKIPPED'
+                  )
+                """,Integer.class,auth.currentUserId(),date);
+    }
+
     @Transactional(readOnly=true)
     public JsonNode reviewDraft(List<Selection> selections) {
         return mapper.valueToTree(select(auth.currentUserId(),selections));

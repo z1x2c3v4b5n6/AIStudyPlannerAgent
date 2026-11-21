@@ -46,7 +46,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: c12-offline-evaluation
-          path: backend/target/c12-*.json
+          path: |
+            backend/target/c12-*.json
+            backend/target/c13-*.json
           if-no-files-found: ignore
           retention-days: 7
 

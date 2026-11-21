@@ -25,6 +25,9 @@ const tools: Record<string, string> = {
   list_subjects: '学习科目', list_goals: '学习目标', today_tasks: '今日任务',
   open_tasks: '未完成任务', study_records: '学习记录', study_statistics: '学习统计',
   learning_paths: '学习路径', search_knowledge: '知识库', unknown: '未知工具',
+  get_assessment_history:'测评历史', get_knowledge_performance:'知识表现', list_weak_topics:'薄弱知识点',
+  get_wrong_answers:'错题', get_assessment_summary:'测评概览', list_assessment_topics:'测评知识点',
+  propose_assessment_practice:'开始新测评', propose_assessment_review:'安排薄弱点复习',
   propose_task_create: '新建任务', propose_task_update: '修改任务', propose_study_plan: '计划草案',
 }
 const examplePrompts = ['帮我看看今天还有什么任务没有完成。', '明天下午帮我安排两个小时学习 RAG。', '把我的 Spring Boot 任务调整到后天。']

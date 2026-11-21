@@ -90,7 +90,7 @@ public class AssessmentPerformance {
         long owner=auth.currentUserId();
         var cycles=db.query("""
                 SELECT c.path_item_id,c.task_id,t.status,i.topic,
-                    (SELECT MAX(r.ended_at) FROM study_record r WHERE r.user_id=c.owner_id AND r.task_id=c.task_id)
+                    GREATEST(t.completed_at,(SELECT MAX(r.ended_at) FROM study_record r WHERE r.user_id=c.owner_id AND r.task_id=c.task_id))
                 FROM adaptive_review_cycle c JOIN study_task t ON t.id=c.task_id AND t.user_id=c.owner_id
                 JOIN study_path_item i ON i.id=c.path_item_id AND i.user_id=c.owner_id
                 WHERE c.owner_id=? AND c.cycle_key LIKE 'ASSESS-%' ORDER BY c.created_ms DESC LIMIT 20
