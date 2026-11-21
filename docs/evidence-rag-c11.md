@@ -34,3 +34,8 @@ CI 使用固定目录夹具。开发验证另外下载了真实 Spring Boot 3.5 
 ## 评估范围
 
 `mvn -f backend/pom.xml -Dtest=RagReplayEvaluationTest test` 输出 `backend/target/c11-rag-replay.json`。固定夹具包括四道正例和一道无关例。它比较无证据、C-4 证据、公开文档、公开文档加在线夹具以及人工 Oracle，验证引用结构、用标注核对事实支持并报告回放延时。精确率按每查询三个位置计，召回率和 MRR 以四条正例计。错版本、私有文档越权和回滚由 MySQL/Redis/Chromium E2E 单独验证，未用零样本推算比例。该回放使用固定的模型响应和人工证据输入，指标不能代表模型或生产检索整体质量。完整基准语料和真实模型成本仍待实际采样。
+
+
+## C-12.1 输出修正
+
+`POST /api/v1/knowledge-hub/rag/answer` 保留原响应字段。成功回答由服务端根据模型选出的有效证据编号组装，展示对应原文块；`citations[].quote` 同样保留该段上下文。模型提供的自由表述不直接出现在答案中。来源语言保持原样。有效引用仍可能选择有偏差、相关性不足或缺少相邻上下文的资料。详细验收见 [C-12.1 报告](final-acceptance-c12-1.md)。

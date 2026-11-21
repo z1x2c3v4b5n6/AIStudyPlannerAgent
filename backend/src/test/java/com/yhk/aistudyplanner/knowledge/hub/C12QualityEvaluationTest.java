@@ -49,6 +49,13 @@ class C12QualityEvaluationTest {
         var generation=judge(load("generation-v1.tsv"),generationRows);
         reports.put("generation",generation);
         reports.put("generationResults",generationRows);
+        long exactGrounded=generationRows.stream().filter(row->"SOURCE_EXCERPT".equals(row.get("c12_1"))).count();
+        assertEquals(21,exactGrounded);
+        var remediation=Map.of("sameFixtures",generation.cases(),"legacyUnsupportedStatementsPublished",generation.contradicted(),
+                "newUnsupportedModelStatementsPublished",0,"referenceSourceExcerptsShown",exactGrounded,
+                "rejectedInvalidCitations",generation.invalidCitation(),"abstentions",generation.abstained());
+        reports.put("c12_1Remediation",remediation);
+        System.out.println("C121_FACT_SUPPORT "+mapper.writeValueAsString(remediation));
         reports.put("scope","C4 runs real structured retrieval. Document ranking replays the same pack as a synthetic, in-memory corpus. No live provider.");
         export(reports);
         System.out.println("C12_GENERATION "+mapper.writeValueAsString(generation));
@@ -100,6 +107,7 @@ class C12QualityEvaluationTest {
         int invalid=0,supported=0,contradicted=0,abstained=0,referenceMatches=0,missing=0;
         for(var row:rows){
             String verdict;
+            String revised="ABSTAIN";
             if(row[2].isBlank()){
                 missing++;
                 verdict=RagAnswerService.decode("{\"claims\":[]}",List.of(),mapper).isEmpty()?"ABSTAIN":"UNSUPPORTED";
@@ -109,13 +117,18 @@ class C12QualityEvaluationTest {
                 String response=mapper.writeValueAsString(Map.of("claims",List.of(Map.of("statement",row[4],"evidenceId",row[5],"quote",row[2]))));
                 try {
                     var decoded=RagAnswerService.decode(response,List.of(block),mapper);
+                    var revisedSources=RagAnswerService.selectedSources(decoded,List.of(block));
+                    assertEquals(1,revisedSources.size());
+                    assertEquals(row[2],revisedSources.get(0).quote(),row[0]);
+                    assertEquals("E1",revisedSources.get(0).evidence().id(),row[0]);
+                    revised="SOURCE_EXCERPT";
                     if(decoded.get(0).statement().equals(row[3])) {supported++;verdict="SUPPORTED";}
                     else {contradicted++;verdict="CONTRADICTED";}
-                } catch(IllegalArgumentException failure){invalid++;verdict="INVALID_CITATION";}
+                } catch(IllegalArgumentException failure){invalid++;verdict="INVALID_CITATION";revised="REJECTED";}
             }
             assertEquals(row[6],verdict,row[0]);
             if(verdict.equals(row[6])) referenceMatches++;
-            details.add(Map.of("id",row[0],"category",row[1],"verdict",verdict));
+            details.add(Map.of("id",row[0],"category",row[1],"verdict",verdict,"c12_1",revised));
         }
         return new GenerationMetric(rows.size(),referenceMatches,invalid,supported,contradicted,missing,abstained,
                 supported/(double)(supported+contradicted), (supported+contradicted)/(double)(rows.size()-missing),

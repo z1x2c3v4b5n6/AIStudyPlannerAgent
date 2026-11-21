@@ -89,7 +89,7 @@ async function sendFeedback() {
     <template v-if="result">
       <el-alert v-if="result.fallbackReason" :title="reasons[result.fallbackReason]||'本次无法完成生成，可查看已取得的证据。'"
                 type="warning" :closable="false"/>
-      <pre v-if="result.answer" class="answer">{{ result.answer }}</pre>
+      <h3 v-if="result.answer">从证据中选出的原文</h3>
       <p v-if="result.usedVersions.length">适用版本 {{ result.usedVersions.join('、') }}</p>
       <article v-for="(citation,index) in result.citations" :key="citation.evidence.id+index" class="citation">
         <strong>[{{ citation.evidence.id }}] {{ citation.evidence.title }}</strong>

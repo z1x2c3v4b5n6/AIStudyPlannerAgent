@@ -36,6 +36,33 @@ class C12OfficialAcceptanceTest {
 
     @Test
     @EnabledIfEnvironmentVariable(named="C12_LIVE_OFFICIAL",matches="true")
+    void findsRelevantSpringBootFromLiveOfficialCatalog() {
+        var collector=new OfficialDocuments(true);
+        var url=URI.create("https://docs.spring.io/spring-boot/3.5/reference/index.html");
+        var query=new KnowledgeHubSearch.Query("Spring Boot actuator endpoints",KnowledgeDomain.JAVA_BACKEND,
+                "3.5",null,null,KnowledgeHubSearch.Scope.PUBLIC,true);
+        var results=OfficialCatalogSearch.links(url,collector.catalog(url.toString()),query);
+        var discovered=results.stream().filter(candidate->candidate.url().endsWith("/actuator/endpoints.html"))
+                .findFirst().orElseThrow();
+        assertEquals("3.5",discovered.softwareVersion());
+        var content=collector.fetch(discovered);
+        assertTrue(content.title().contains("Endpoints"));
+        assertTrue(EvidenceText.split(content.title(),content.text()).stream().anyMatch(chunk->
+                EvidenceText.normalize(chunk.excerpt()).contains("endpoint")));
+        System.out.println("C121_OFFICIAL_CATALOG PASS "+discovered.url());
+    }
+
+    @Test void transportDiagnosticsAndEncodingDoNotExposeResponseContent() {
+        assertEquals("TLS",OfficialDocuments.transportCategory(new javax.net.ssl.SSLHandshakeException("redacted")));
+        assertEquals("DNS",OfficialDocuments.transportCategory(new java.net.UnknownHostException("redacted")));
+        assertEquals("TIMEOUT",OfficialDocuments.transportCategory(new java.net.http.HttpTimeoutException("redacted")));
+        assertEquals("HTTP_403",OfficialDocuments.transportCategory(new OfficialDocuments.FetchFailure("HTTP_403")));
+        assertEquals("事务",OfficialDocuments.decode("事务".getBytes(java.nio.charset.StandardCharsets.UTF_8),"text/html; charset=UTF-8"));
+        assertThrows(OfficialDocuments.FetchFailure.class,()->OfficialDocuments.decode(new byte[]{(byte)0xff},"text/html"));
+    }
+
+    @Test
+    @EnabledIfEnvironmentVariable(named="C12_LIVE_OFFICIAL",matches="true")
     void verifiesActualOfficialContentWithTheApplicationCollector() throws Exception {
         var collector=new OfficialDocuments(true);
         var checks=new ArrayList<Result>();
@@ -63,7 +90,8 @@ class C12OfficialAcceptanceTest {
             } catch(UnknownHostException error) {
                 category="DNS";
             } catch(RuntimeException error) {
-                category=error instanceof com.yhk.aistudyplanner.common.exception.BusinessException business
+                if(error instanceof OfficialDocuments.FetchFailure failure) category=failure.category();
+                else category=error instanceof com.yhk.aistudyplanner.common.exception.BusinessException business
                         ? business.getErrorCode().name() : "EVIDENCE_VALIDATION";
             }
             checks.add(new Result(target.name(),target.url(),target.version(),status,category,count,(System.nanoTime()-started)/1_000_000));
