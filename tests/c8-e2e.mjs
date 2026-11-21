@@ -63,7 +63,7 @@ function modelFixture(request) {
     const evidence=rag.untrustedEvidence[0]
     const content={claims:evidence?[{statement:'请按照该版本的官方说明核对配置。',
       evidenceId:rag.question.includes('unknowncitation')?'E999':evidence.id,quote:evidence.text.slice(0,120)}]:[]}
-    message={role:'assistant',content:rag.question.includes('c12invalidjson')?'not-json':JSON.stringify(content)}
+    message={role:'assistant',content:(rag.question.includes('c12invalidjson') || rag.question.includes('c121-invalid-model'))?'not-json':JSON.stringify(content)}
   } else if (request.response_format?.type === 'json_object') {
     for(const block of rag?.untrustedDocumentEvidence || []) providerTrace.push('c11-path:'+block.versionId)
     const topic = 'Spring Boot 自动配置'
@@ -135,6 +135,18 @@ const fixture = createServer(async (req, res) => {
       return
     }
     if (providerBudget) {
+      let parsed
+      const last=request.messages.at(-1)
+      if (last?.role==='user') {
+        try { parsed=JSON.parse(last.content) } catch { /* Plain chat prompt. */ }
+      }
+      if (parsed?.question?.includes('c121-invalid-model') || String(last?.content).includes('c12invalidtool')) {
+        providerTrace.push({category:'LOCAL_INJECTED_FAULT'})
+        res.writeHead(200,{'content-type':'application/json'}).end(JSON.stringify(modelFixture(request)))
+        return
+      }
+      for (const item of parsed?.untrustedDocumentEvidence ?? [])
+        providerTrace.push({category:'LEARNING_PATH_EVIDENCE',versionId:item.versionId})
       const forwarded = await providerBudget.forward(request)
       providerTrace.push(forwarded.event)
       res.writeHead(forwarded.status, { 'content-type': 'application/json' }).end(JSON.stringify(forwarded.data))
@@ -373,9 +385,15 @@ try {
     const pending=reply.actions.findLast(item=>item.type==='propose_task_update' && item.status==='PENDING')
     assert.equal((await request(a,'/tasks/'+target.id)).plannedDate,current.plannedDate)
     const confirm=()=>request(a,base+'/actions/'+pending.id+'/decision','POST',{confirm:true,digest:pending.digest})
-    await confirm()
-    await confirm()
+    const firstApproval=await confirm()
+    const secondApproval=await confirm()
+    assert.equal(firstApproval.actions.find(action=>action.id===pending.id)?.status,'EXECUTED')
+    assert.deepEqual(firstApproval.actions.find(action=>action.id===pending.id),secondApproval.actions.find(action=>action.id===pending.id))
     assert.equal((await request(a,'/tasks/'+target.id)).plannedDate,editDay)
+    const invalid=await request(a,base+'/messages','POST',{text:'c12invalidtool'})
+    assert.ok(invalid.messages.at(-1).tools.some(tool=>tool.name==='propose_task_update'&&!tool.success))
+    assert.equal(invalid.actions.filter(action=>action.status==='PENDING').length,0)
+    report.push('C-12.1 local invalid tool payload is rejected inside the optional live suite')
     report.push('C-12 live model: structured JSON, multi-tool read and user-approved update with duplicate receipt')
   }
 
@@ -543,7 +561,7 @@ try {
     await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
     if (process.env.C12_VERIFY_DB_FAULT==='true') await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate,page,frontend})
   }
-  if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
+  if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report,providerTrace,extended:Boolean(providerBudget)})
   assert.deepEqual(pageErrors, [])
   completed = true
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')

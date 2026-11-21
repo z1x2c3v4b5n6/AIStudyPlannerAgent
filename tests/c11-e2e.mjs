@@ -136,7 +136,7 @@ export async function verifyEvidenceRag({a,b,account,request,page,frontend,repor
   report.push('C-11 private RAG isolation and Chromium answer-to-citation interaction')
 }
 
-export async function verifyLiveRag({a,request,report}) {
+export async function verifyLiveRag({a,request,report,providerTrace,extended=false}) {
   const root='/knowledge-hub'
   const unique='proxyfixture'+randomUUID().replaceAll('-','').slice(0,10)
   const source=await request(a,root+'/manage/sources','POST',{name:'Synthetic transaction evidence',domain:'JAVA_BACKEND',
@@ -151,5 +151,17 @@ export async function verifyLiveRag({a,request,report}) {
   assert.ok(answer.citations.some(citation=>citation.evidence.versionId===version.id))
   console.log(JSON.stringify({probe:'c11-real-deepseek',model:answer.modelInformation,tokens:answer.tokenUsage,
     latency:answer.latencyInformation,citations:answer.citations.length}))
+  if (extended) {
+    const path=await request(a,'/ai/learning-paths/generate','POST',{
+      requirement:'学习 Spring Boot 3.5 事务代理与 '+unique, softwareVersion:'3.5', dailyMinutes:60,
+    })
+    assert.ok(path.stages.length>0)
+    assert.ok(providerTrace.some(event=>event.category==='LEARNING_PATH_EVIDENCE'&&event.versionId===version.id))
+    const malformed=await request(a,root+'/rag/answer','POST',{
+      query:unique+' c121-invalid-model',softwareVersion:'3.5',scope:'PUBLIC',
+    })
+    assert.equal(malformed.fallbackReason,'INVALID_CITATION')
+    report.push('C-12.1 live Learning Path consumed published evidence; local malformed-response check downgraded')
+  }
   report.push('C-11 live DeepSeek: cited answer verified against isolated synthetic material')
 }
