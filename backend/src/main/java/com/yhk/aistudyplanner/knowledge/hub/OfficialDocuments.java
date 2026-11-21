@@ -153,9 +153,9 @@ class OfficialDocuments {
     }
 
     static String decode(byte[] bytes,String contentType) {
-        var declared=java.util.regex.Pattern.compile("(?i);\\s*charset\\s*=\\s*["']?([^;"'\\s]+)").matcher(contentType);
         try {
-            Charset charset=declared.find()?Charset.forName(declared.group(1)):StandardCharsets.UTF_8;
+            Charset declared=org.springframework.util.MimeTypeUtils.parseMimeType(contentType).getCharset();
+            Charset charset=declared==null?StandardCharsets.UTF_8:declared;
             if (!List.of(StandardCharsets.UTF_8,StandardCharsets.US_ASCII).contains(charset))
                 throw new FetchFailure("ENCODING");
             return charset.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
