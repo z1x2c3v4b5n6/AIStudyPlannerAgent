@@ -28,6 +28,8 @@ export async function verifyEvidenceRag({a,b,account,request,page,frontend,repor
   const valid=await ask(a,key,{softwareVersion:'3.5'})
   assert.equal(valid.retrievalMode,'GENERATED')
   assert.ok(valid.answer.includes('[E1]'))
+  assert.ok(valid.answer.includes('requires a public method through the proxy'))
+  assert.ok(!valid.answer.includes('请按照该版本的官方说明核对配置'))
   assert.equal(valid.citations[0].evidence.versionId,v1.id)
   assert.equal(valid.citations[0].evidence.chunkId,v1.id+':1')
   assert.match(valid.citations[0].quote,/Transaction options/)
