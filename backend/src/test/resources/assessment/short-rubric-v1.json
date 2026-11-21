@@ -1,0 +1,12 @@
+{
+  "version":"c13-short-rubric-v1", "cases":[
+    {"id":"complete-proxy","answer":"Only external calls go through the proxy. Self-invocation bypasses the proxy.",
+     "quotes":["external calls go through","Self-invocation bypasses"],"humanCoverage":2,"expectedAccepted":true},
+    {"id":"partial-proxy","answer":"External calls go through the proxy.",
+     "quotes":["External calls go through",""],"humanCoverage":1,"expectedAccepted":true},
+    {"id":"fabricated-support","answer":"All methods open a new transaction.",
+     "quotes":["external calls go through","Self-invocation bypasses"],"humanCoverage":0,"expectedAccepted":false},
+    {"id":"quoted-but-wrong","answer":"It is false that external calls go through the proxy.",
+     "quotes":["external calls go through",""],"humanCoverage":0,"expectedAccepted":true}
+  ]
+}
