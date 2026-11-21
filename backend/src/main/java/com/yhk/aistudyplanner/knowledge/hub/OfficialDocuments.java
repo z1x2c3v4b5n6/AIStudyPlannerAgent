@@ -61,30 +61,35 @@ class OfficialDocuments {
     }
 
     private Payload download(String url) {
-        if (!enabled || !concurrent.tryAcquire()) throw unavailable();
+        if (!enabled) throw new FetchFailure("DISABLED");
+        if (!concurrent.tryAcquire()) throw new FetchFailure("CAPACITY");
         try {
             var request = HttpRequest.newBuilder(validate(url)).GET().timeout(Duration.ofSeconds(6))
                     .header("Accept", "text/html,text/plain,text/markdown")
                     .header("User-Agent","AIStudyPlannerKnowledgeHub/1.0").build();
             var content = http.sendAsync(request, info -> {
                 String kind = info.headers().firstValue("Content-Type").orElse("").split(";",2)[0].toLowerCase(Locale.ROOT).strip();
-                if (info.statusCode()!=200 || !List.of("text/html","text/plain","text/markdown").contains(kind)
-                        || info.headers().firstValueAsLong("Content-Length").orElse(0)>MAX_BYTES)
-                    throw unavailable();
+                if (info.statusCode()!=200) throw new FetchFailure("HTTP_"+info.statusCode());
+                if (!List.of("text/html","text/plain","text/markdown").contains(kind)) throw new FetchFailure("CONTENT_TYPE");
+                if (info.headers().firstValueAsLong("Content-Length").orElse(0)>MAX_BYTES)
+                    throw new FetchFailure("CONTENT_SIZE");
                 return limitedBody();
             });
             HttpResponse<byte[]> result;
             try { result = content.get(7,TimeUnit.SECONDS); }
             catch (TimeoutException | InterruptedException failure) {
                 content.cancel(true);
-                if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
-                throw unavailable();
+                if (failure instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new FetchFailure("INTERRUPTED");
+                }
+                throw new FetchFailure("TIMEOUT");
             }
-            String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(result.body())).toString();
-            return new Payload(text,result.headers().firstValue("Content-Type").orElse("").toLowerCase(Locale.ROOT));
-        } catch (ExecutionException | CharacterCodingException failure) {
-            throw unavailable();
+            String contentType=result.headers().firstValue("Content-Type").orElse("").toLowerCase(Locale.ROOT);
+            String text=decode(result.body(),contentType);
+            return new Payload(text,contentType);
+        } catch (ExecutionException failure) {
+            throw new FetchFailure(transportCategory(failure));
         } finally {
             concurrent.release();
         }
@@ -133,7 +138,7 @@ class OfficialDocuments {
                 for(var part:parts) {
                     if (part.remaining()>MAX_BYTES-bytes.size()) {
                         subscription.cancel();
-                        result.completeExceptionally(unavailable());
+                        result.completeExceptionally(new FetchFailure("CONTENT_SIZE"));
                         return;
                     }
                     var chunk=new byte[part.remaining()];
@@ -145,6 +150,41 @@ class OfficialDocuments {
             @Override public void onError(Throwable error) { result.completeExceptionally(error); }
             @Override public void onComplete() { result.complete(bytes.toByteArray()); }
         };
+    }
+
+    static String decode(byte[] bytes,String contentType) {
+        var declared=java.util.regex.Pattern.compile("(?i);\\s*charset\\s*=\\s*["']?([^;"'\\s]+)").matcher(contentType);
+        try {
+            Charset charset=declared.find()?Charset.forName(declared.group(1)):StandardCharsets.UTF_8;
+            if (!List.of(StandardCharsets.UTF_8,StandardCharsets.US_ASCII).contains(charset))
+                throw new FetchFailure("ENCODING");
+            return charset.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
+        } catch (IllegalArgumentException | CharacterCodingException failure) {
+            throw new FetchFailure("ENCODING");
+        }
+    }
+
+    static String transportCategory(Throwable failure) {
+        for(Throwable current=failure;current!=null;current=current.getCause()){
+            if(current instanceof FetchFailure known) return known.category();
+            if(current instanceof javax.net.ssl.SSLException) return "TLS";
+            if(current instanceof java.net.UnknownHostException || current instanceof java.nio.channels.UnresolvedAddressException)
+                return "DNS";
+            if(current instanceof HttpTimeoutException || current instanceof TimeoutException) return "TIMEOUT";
+            // The JDK CONNECT error has no structured status accessor.
+            if(current instanceof java.io.IOException && current.getMessage()!=null
+                    && current.getMessage().contains("407")) return "PROXY_AUTH";
+        }
+        return "TRANSPORT";
+    }
+
+    static final class FetchFailure extends BusinessException {
+        private final String category;
+        FetchFailure(String category) {
+            super(ErrorCode.KNOWLEDGE_SOURCE_UNAVAILABLE);
+            this.category=category;
+        }
+        String category(){return category;}
     }
 
     private static BusinessException unavailable() { return new BusinessException(ErrorCode.KNOWLEDGE_SOURCE_UNAVAILABLE); }
