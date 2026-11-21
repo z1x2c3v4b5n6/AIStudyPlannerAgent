@@ -2,6 +2,8 @@ package com.yhk.aistudyplanner.adaptive;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yhk.aistudyplanner.assessment.AssessmentPerformance;
+import com.yhk.aistudyplanner.assessment.AssessmentTopics;
 import com.yhk.aistudyplanner.auth.service.AuthSessionService;
 import com.yhk.aistudyplanner.common.exception.BusinessException;
 import com.yhk.aistudyplanner.common.exception.ErrorCode;
@@ -28,10 +30,11 @@ public class LearningReviews {
     private final TaskService tasks;
     private final AdaptiveProposals proposals;
     private final ObjectMapper mapper;
+    private final AssessmentPerformance performance;
 
     LearningReviews(JdbcTemplate jdbc,AuthSessionService auth,Clock clock,TaskService tasks,
-                    AdaptiveProposals proposals,ObjectMapper mapper) {
-        this.jdbc=jdbc;this.auth=auth;this.clock=clock;this.tasks=tasks;this.proposals=proposals;this.mapper=mapper;
+                    AdaptiveProposals proposals,ObjectMapper mapper,AssessmentPerformance performance) {
+        this.jdbc=jdbc;this.auth=auth;this.clock=clock;this.tasks=tasks;this.proposals=proposals;this.mapper=mapper;this.performance=performance;
     }
 
     @Transactional(readOnly=true)
@@ -152,6 +155,12 @@ public class LearningReviews {
                     lastDay,rating,suggested,reason,lastDay==null?"SELF_RATED":lastDay.toString(),latest);
         },owner,today).stream().filter(Objects::nonNull).toList();
         if(raw.isEmpty()) return List.of();
+        var weak=performance.summary(30,null,null).topics().stream()
+                .filter(row->row.level()==AssessmentPerformance.Level.NEEDS_PRACTICE).toList();
+        raw=raw.stream().map(item->{
+            var matching=weak.stream().filter(topic->AssessmentTopics.related(item.topic(),topic.topic())).toList();
+            return matching.size()==1?withAssessment(item,matching.get(0),today):item;
+        }).toList();
         var args=new ArrayList<Object>(); args.add(owner);raw.forEach(item->args.add(item.itemId()));
         var cycles=new HashMap<String,Long>();
         jdbc.query("SELECT path_item_id,cycle_key,task_id FROM adaptive_review_cycle WHERE owner_id=? AND path_item_id IN ("
@@ -162,6 +171,16 @@ public class LearningReviews {
                 item.lastStudy(),item.rating(),item.suggestedDate(),item.reason(),item.cycleKey(),
                 item.reviewTaskId()!=null ? item.reviewTaskId() : cycles.get(item.itemId()+"/"+item.cycleKey())))
                 .sorted(Comparator.comparing(Candidate::suggestedDate,Comparator.nullsLast(Comparator.naturalOrder())).thenComparingLong(Candidate::itemId)).toList();
+    }
+
+    static Candidate withAssessment(Candidate item,AssessmentPerformance.TopicResult topic,LocalDate today) {
+        String reason="近期 "+topic.softwareVersion()+" 新题 "+topic.newQuestions().correct()+"/"+topic.newQuestions().total()
+                +" 正确，连续错 "+topic.consecutiveErrors()+" 题。";
+        if(item.rating()==Rating.FAMILIAR || item.rating()==Rating.FLUENT) reason+="与当前自评存在差异。";
+        if(item.lastStudy()!=null) reason+="最近学习 "+item.lastStudy()+"。";
+        String cycle="ASSESS-"+topic.lastScoredAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
+        return new Candidate(item.itemId(),item.subjectId(),item.topic(),item.originalTaskId(),item.lastStudy(),item.rating(),
+                today,reason,cycle,item.reviewTaskId());
     }
 
     private void lockOwner(long owner) {

@@ -38,24 +38,7 @@ public class AssessmentPerformance {
         if(unit!=null) questions.topic(unit);
         long owner=auth.currentUserId();
         var since=questions.now().minusDays(days);
-        var observed=db.query("""
-                SELECT q.unit_id,v.software_version,v.question_id,i.grade,v.difficulty,s.submitted_at,
-                  NOT EXISTS(
-                    SELECT 1 FROM assessment_session earlier JOIN assessment_session_item attempt ON attempt.session_id=earlier.id
-                    JOIN assessment_question_version eq ON eq.id=attempt.question_version_id
-                    WHERE earlier.owner_id=s.owner_id AND earlier.state='SUBMITTED' AND eq.question_id=v.question_id
-                      AND attempt.grade IN ('CORRECT','INCORRECT') AND
-                      (earlier.submitted_at<s.submitted_at OR earlier.submitted_at=s.submitted_at AND earlier.id<s.id)
-                  ) AS first_result
-                FROM assessment_session s JOIN assessment_session_item i ON i.session_id=s.id
-                JOIN assessment_question_version v ON v.id=i.question_version_id JOIN assessment_question q ON q.id=v.question_id
-                WHERE s.owner_id=? AND s.state='SUBMITTED' AND s.submitted_at>=?
-                  AND (? IS NULL OR s.subject_id=?) AND (? IS NULL OR q.unit_id=?)
-                  AND q.owner_id IS NULL AND i.grade IN ('CORRECT','INCORRECT')
-                ORDER BY s.submitted_at DESC,s.id DESC,i.ordinal DESC LIMIT 601
-                """,(r,n)->new Observation(r.getString(1),r.getString(2),new Sample(r.getLong(3),
-                "CORRECT".equals(r.getString(4)),r.getBoolean(7),Difficulty.valueOf(r.getString(5)),
-                r.getObject(6,LocalDateTime.class))),owner,since,subject,subject,unit,unit);
+        var observed=observations(owner,since,subject,unit);
         var counts=db.queryForMap("""
                 SELECT COUNT(DISTINCT s.id) AS sessions, COALESCE(SUM(i.grade='INCORRECT'),0) AS incorrect,
                   COALESCE(SUM(i.grade='NEEDS_REVIEW'),0) AS pending
@@ -78,6 +61,66 @@ public class AssessmentPerformance {
                 number(counts,"incorrect"),number(counts,"pending"),results);
     }
 
+    private List<Observation> observations(long owner,LocalDateTime since,Long subject,String unit) {
+        return db.query("""
+                SELECT q.unit_id,v.software_version,v.question_id,i.grade,v.difficulty,s.submitted_at,
+                  NOT EXISTS(
+                    SELECT 1 FROM assessment_session earlier JOIN assessment_session_item attempt ON attempt.session_id=earlier.id
+                    JOIN assessment_question_version eq ON eq.id=attempt.question_version_id
+                    WHERE earlier.owner_id=s.owner_id AND earlier.state='SUBMITTED' AND eq.question_id=v.question_id
+                      AND attempt.grade IN ('CORRECT','INCORRECT') AND
+                      (earlier.submitted_at<s.submitted_at OR earlier.submitted_at=s.submitted_at AND earlier.id<s.id)
+                  ) AS first_result
+                FROM assessment_session s JOIN assessment_session_item i ON i.session_id=s.id
+                JOIN assessment_question_version v ON v.id=i.question_version_id JOIN assessment_question q ON q.id=v.question_id
+                WHERE s.owner_id=? AND s.state='SUBMITTED' AND s.submitted_at>=?
+                  AND (? IS NULL OR s.subject_id=?) AND (? IS NULL OR q.unit_id=?)
+                  AND q.owner_id IS NULL AND i.grade IN ('CORRECT','INCORRECT')
+                ORDER BY s.submitted_at DESC,s.id DESC,i.ordinal DESC LIMIT 601
+                """,(r,n)->new Observation(r.getString(1),r.getString(2),new Sample(r.getLong(3),
+                "CORRECT".equals(r.getString(4)),r.getBoolean(7),Difficulty.valueOf(r.getString(5)),
+                r.getObject(6,LocalDateTime.class))),owner,since,subject,subject,unit,unit);
+    }
+
+    public record ReviewEffect(long itemId,long taskId,String taskStatus,LocalDateTime completedAt,String unitId,
+                               String version,Difficulty difficulty,Counts before,Counts after,boolean sufficient) {}
+    public record ReviewProgress(int accepted,int completed,List<ReviewEffect> effects) {}
+
+    public ReviewProgress reviewProgress() {
+        long owner=auth.currentUserId();
+        var cycles=db.query("""
+                SELECT c.path_item_id,c.task_id,t.status,i.topic,
+                    (SELECT MAX(r.ended_at) FROM study_record r WHERE r.user_id=c.owner_id AND r.task_id=c.task_id)
+                FROM adaptive_review_cycle c JOIN study_task t ON t.id=c.task_id AND t.user_id=c.owner_id
+                JOIN study_path_item i ON i.id=c.path_item_id AND i.user_id=c.owner_id
+                WHERE c.owner_id=? AND c.cycle_key LIKE 'ASSESS-%' ORDER BY c.created_ms DESC LIMIT 20
+                """,(r,n)->new ReviewCycle(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getObject(5,LocalDateTime.class)),owner);
+        var known=questions.topics();
+        var effects=new ArrayList<ReviewEffect>();
+        for(var cycle:cycles) {
+            if(cycle.completedAt()==null || !"COMPLETED".equals(cycle.status())) continue;
+            var candidates=known.stream().filter(t->AssessmentTopics.related(cycle.topic(),t.title())).limit(2).toList();
+            if(candidates.size()!=1) continue;
+            String unit=candidates.get(0).id();
+            var completion=cycle.completedAt();
+            var rows=observations(owner,completion.minusDays(14),null,unit).stream()
+                    .filter(row->row.sample().first() && row.sample().submittedAt().isBefore(completion.plusDays(14))).toList();
+            var versions=new TreeSet<String>();
+            rows.forEach(r->versions.add(r.version()));
+            for(String version:versions) for(var difficulty:Difficulty.values()) {
+                var exam=rows.stream().filter(r->r.version().equals(version) && r.sample().difficulty()==difficulty)
+                        .map(Observation::sample).toList();
+                var before=count(exam.stream().filter(r->r.submittedAt().isBefore(completion)).toList());
+                var after=count(exam.stream().filter(r->!r.submittedAt().isBefore(completion)).toList());
+                if(before.total()+after.total()>0) effects.add(new ReviewEffect(cycle.itemId(),cycle.taskId(),cycle.status(),
+                        completion,unit,version,difficulty,before,after,before.total()>=minimum && after.total()>=minimum));
+            }
+        }
+        return new ReviewProgress(cycles.size(),(int)cycles.stream().filter(cycle->"COMPLETED".equals(cycle.status())).count(),List.copyOf(effects));
+    }
+
+    private record ReviewCycle(long itemId,long taskId,String status,String topic,LocalDateTime completedAt) {}
+
     static TopicResult measure(String unit,String title,String version,List<Sample> newest,int minimum) {
         var first=newest.stream().filter(Sample::first).toList();
         var repeated=newest.stream().filter(row->!row.first()).toList();
@@ -88,7 +131,7 @@ public class AssessmentPerformance {
                 :accuracy>=0.85?Level.CONSISTENT:Level.DEVELOPING;
         var byDifficulty=new EnumMap<Difficulty,Counts>(Difficulty.class);
         for(var difficulty:Difficulty.values()) byDifficulty.put(difficulty,count(first.stream().filter(row->row.difficulty()==difficulty).toList()));
-        return new TopicResult(unit,title,version,level,newCounts,count(repeated),misses,newest.get(0).submittedAt(),Map.copyOf(byDifficulty));
+        return new TopicResult(unit,title,version,level,newCounts,count(repeated),misses,(first.isEmpty()?newest:first).get(0).submittedAt(),Map.copyOf(byDifficulty));
     }
 
     public List<Wrong> wrong(Long subject,String unit,int page) {

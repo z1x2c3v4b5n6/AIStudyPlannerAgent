@@ -64,6 +64,9 @@ class AssessmentController {
         return ApiResponse.success(performance.summary(days,subjectId,unitId));
     }
 
+    @GetMapping("/review-progress")
+    ApiResponse<?> reviewProgress() { return ApiResponse.success(performance.reviewProgress()); }
+
     @GetMapping("/wrong-answers")
     ApiResponse<?> wrong(@RequestParam(required=false) Long subjectId,@RequestParam(required=false) String unitId,
                          @RequestParam(defaultValue="1") int page) {
