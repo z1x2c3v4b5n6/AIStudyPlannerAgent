@@ -34,6 +34,24 @@ class C12OfficialAcceptanceTest {
         assertEquals("1.1",links.get(0).softwareVersion());
     }
 
+    @Test
+    @EnabledIfEnvironmentVariable(named="C12_LIVE_OFFICIAL",matches="true")
+    void findsRelevantSpringBootFromLiveOfficialCatalog() {
+        var collector=new OfficialDocuments(true);
+        var url=URI.create("https://docs.spring.io/spring-boot/3.5/reference/index.html");
+        var query=new KnowledgeHubSearch.Query("Spring Boot actuator endpoints",KnowledgeDomain.JAVA_BACKEND,
+                "3.5",null,null,KnowledgeHubSearch.Scope.PUBLIC,true);
+        var results=OfficialCatalogSearch.links(url,collector.catalog(url.toString()),query);
+        var discovered=results.stream().filter(candidate->candidate.url().endsWith("/actuator/endpoints.html"))
+                .findFirst().orElseThrow();
+        assertEquals("3.5",discovered.softwareVersion());
+        var content=collector.fetch(discovered);
+        assertTrue(content.title().contains("Endpoints"));
+        assertTrue(EvidenceText.split(content.title(),content.text()).stream().anyMatch(chunk->
+                EvidenceText.normalize(chunk.excerpt()).contains("endpoint")));
+        System.out.println("C121_OFFICIAL_CATALOG PASS "+discovered.url());
+    }
+
     @Test void transportDiagnosticsAndEncodingDoNotExposeResponseContent() {
         assertEquals("TLS",OfficialDocuments.transportCategory(new javax.net.ssl.SSLHandshakeException("redacted")));
         assertEquals("DNS",OfficialDocuments.transportCategory(new java.net.UnknownHostException("redacted")));
