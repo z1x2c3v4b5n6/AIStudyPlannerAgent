@@ -50,6 +50,9 @@ const labels: Record<string, string> = {
   clarify:'补充预算', learningProfile:'个人学习画像', diagnostics:'诊断依据', reviewCandidates:'复习候选',
   adaptivePreview:'比较多日规划', adaptiveCondition:'检查可用方案', adaptiveApproval:'选择并批准方案',
   adaptiveApply:'保存每日计划', adaptiveResult:'汇总学习建议',
+  assessmentRead:'读取真实测评记录', assessmentPreview:'预览测评或复习任务',
+  assessmentCondition:'检查是否可执行', assessmentApproval:'批准测评或复习安排', assessmentApply:'执行获批的安排',
+  assessmentResult:'汇总测评与复习结果',
 }
 const approval = computed(() => run.value?.nodes.find(node => node.status === 'WAITING' && node.kind === 'APPROVAL'))
 const adaptiveApproval = computed(() => approval.value?.id === 'adaptiveApproval')
@@ -66,6 +69,10 @@ const committed = computed(() => run.value?.nodes.some(node => (node.id === 'app
 const planDraft = computed(() => run.value?.nodes.find(node => node.id === 'planDraft')?.result)
 const pathDraft = computed(() => run.value?.status === 'SUCCEEDED'
   ? run.value.nodes.find(node => node.id === 'pathDraft')?.result : null)
+
+const assessmentResult = computed(() => object(run.value?.nodes.find(node => node.id==='assessmentApply')?.result))
+const assessmentLink = computed(() => typeof assessmentResult.value.id==='string'
+  ? {path:'/assessments',query:{session:assessmentResult.value.id}} : null)
 
 function object(value: JsonValue | undefined) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
@@ -282,6 +289,8 @@ async function turnPage(step: number) {
         <el-button v-if="planDraft" type="primary" @click="openDraft('daily')">编辑每日计划草案</el-button>
         <el-button v-if="pathDraft" type="primary" @click="openDraft('path')">编辑学习路径草案</el-button>
         <el-button v-if="committed" @click="router.push(run?.scenario==='ADAPTIVE'?'/plans':'/tasks')">查看已保存结果</el-button>
+        <router-link v-if="assessmentLink" :to="assessmentLink">打开测评</router-link>
+        <router-link v-if="Array.isArray(assessmentResult.taskIds)" to="/tasks">查看已确认的复习任务</router-link>
         <router-link v-if="run.scenario==='ADAPTIVE'" to="/adaptive">打开学习洞察与复习</router-link>
       </div>
     </section>

@@ -99,6 +99,10 @@ function send() {
     await refreshList()
   })
 }
+function practiceSession(action: AgentAction) {
+  const result=action.result
+  return result && typeof result==='object' && !Array.isArray(result) && typeof result.id==='string'?result.id:undefined
+}
 function reviewPlan(action: AgentAction) {
   if (!auth.user || action.status !== 'EXECUTED' || !action.result) return
   passAgentPlanDraft(auth.user.id, action.result as unknown as PlanDraft)
@@ -154,6 +158,8 @@ function decide(action: AgentAction, confirm: boolean) {
           <section v-for="action in [actionMap.get(message.actionId)]" :key="message.actionId" class="action">
             <template v-if="action">
               <div class="action-title"><strong>{{ tools[action.type] }} · {{ action.target }}</strong><el-tag>{{ statusLabels[status(action)] }}</el-tag></div>
+              <router-link v-if="action.type==='propose_assessment_practice' && practiceSession(action)"
+                :to="{path:'/assessments',query:{session:practiceSession(action)}}">打开测评</router-link>
               <AgentData :value="action.preview" />
               <div v-if="status(action) === 'PENDING'" class="action-controls">
                 <el-button type="primary" :disabled="!!busy" @click="decide(action, true)">确认执行</el-button>
