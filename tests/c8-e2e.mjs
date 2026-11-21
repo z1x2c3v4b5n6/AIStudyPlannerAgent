@@ -140,7 +140,7 @@ const fixture = createServer(async (req, res) => {
       if (last?.role==='user') {
         try { parsed=JSON.parse(last.content) } catch { /* Plain chat prompt. */ }
       }
-      if (parsed?.question?.includes('c121-invalid-model') || String(last?.content).includes('c12invalidtool')) {
+      if (parsed?.question?.includes('c121-invalid-model') || String(request.messages.findLast(message=>message.role==='user')?.content).includes('c12invalidtool')) {
         providerTrace.push({category:'LOCAL_INJECTED_FAULT'})
         res.writeHead(200,{'content-type':'application/json'}).end(JSON.stringify(modelFixture(request)))
         return
@@ -178,7 +178,7 @@ const backendEnv = {
   SPRING_FLYWAY_USER: process.env.DB_USERNAME || 'root',
   SPRING_FLYWAY_PASSWORD: process.env.DB_PASSWORD || '',
   SERVER_PORT: '8080',
-  DEEPSEEK_API_KEY: live ? process.env.DEEPSEEK_API_KEY : randomUUID(),
+  DEEPSEEK_API_KEY: randomUUID(),
   DEEPSEEK_BASE_URL: `http://127.0.0.1:${fixturePort}`,
   DEEPSEEK_COMPLETIONS_PATH: '/chat/completions',
   APP_CORS_ALLOWED_ORIGIN: frontend,

@@ -11,7 +11,7 @@
 | Windows Doctor、Start、Smoke、E2E 实际运行 | NOT_RUN | 本轮没有可用的 Windows 运行环境。CI 的 PowerShell 语法检查独立于实际运行。按下方命令分别验证。 |
 | 真实 DeepSeek | NOT_RUN | `node scripts/run-live-c12.mjs` 在本环境输出 `DEEPSEEK_API_KEY is missing`，无付费调用。预算逻辑使用 `node --test tests/c12-provider.test.mjs` 验证。 |
 | JVM 直连官方源 | BLOCKED | Java 17 直连，三个目标均在 DNS 解析失败。使用下方探针复现。 |
-| Spring Boot 3.5 和 Spring AI 1.1 官方正文 | PASS | 同一 Java 应用客户端通过已授权 HTTPS 代理和受信 CA，分别得到 74 和 92 个分块。验证页面版本路径、相关标记及临时引用。 |
+| Spring Boot 3.5 和 Spring AI 1.1 官方正文 | PASS | 同一 Java 应用客户端通过已授权 HTTPS 代理和受信 CA，分别得到 74 和 92 个分块。验证页面版本路径、相关标记及临时引用。实际 Spring Boot 目录查询也成功发现并下载 Actuator Endpoints 页面。 |
 | Oracle Java 17 官方正文 | BLOCKED | 代理链路上的 JVM 已建立连接，目标请求返回 HTTP 403；未计为已通过。 |
 | RAG 输出事实支持 | PASS | `C12QualityEvaluationTest` 使用原 31 条人工标注的固定夹具对照。同一份报告含基线和新策略结果。 |
 | 规划容量及截止日期 | PASS | `AdaptivePlannerTest` 验证高优先级临期任务、30/60/90 分钟容量、完整时段、截止窗口与原日期保留。 |

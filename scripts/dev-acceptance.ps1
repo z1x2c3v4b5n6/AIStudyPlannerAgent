@@ -53,9 +53,11 @@ $backend=$null
 $frontend=$null
 $savedUrl=$env:DB_URL
 $savedFault=$env:C12_VERIFY_DB_FAULT
+$savedLiveC8=$env:C8_LIVE_DEEPSEEK
+$savedLiveC11=$env:C11_LIVE_DEEPSEEK
 try {
-    $javaVersion=(& java -version 2>&1 | Out-String)
-    if ($javaVersion -notmatch 'version "(\d+)' -or [int]$Matches[1] -lt 17) { throw 'Set JAVA_HOME and PATH to JDK 17 or later.' }
+    $javaVersion=(& java --version | Out-String)
+    if ($javaVersion -notmatch '(?im)^(?:openjdk|java)\s+(\d+)' -or [int]$Matches[1] -lt 17) { throw 'Set JAVA_HOME and PATH to JDK 17 or later.' }
     $mavenVersion=(& mvn.cmd --version | Out-String)
     if ($mavenVersion -notmatch 'Apache Maven (\d+)\.(\d+)' -or [int]$Matches[1] -lt 3 -or
         ([int]$Matches[1] -eq 3 -and [int]$Matches[2] -lt 8)) { throw 'Install Maven 3.8 or later.' }
@@ -102,7 +104,11 @@ try {
         $env:C12_VERIFY_DB_FAULT='true'
         if ($env:C12_LIVE_DEEPSEEK -eq 'true') {
             Run 'node.exe' @('scripts/run-live-c12.mjs')
-        } else { Run 'node.exe' @('tests/c8-e2e.mjs') }
+        } else {
+            $env:C8_LIVE_DEEPSEEK=$null
+            $env:C11_LIVE_DEEPSEEK=$null
+            Run 'node.exe' @('tests/c8-e2e.mjs')
+        }
         return
     }
     if ($Mode -eq 'Start') {
@@ -141,6 +147,8 @@ try {
             } finally {
                 $env:DB_URL=$savedUrl
                 $env:C12_VERIFY_DB_FAULT=$savedFault
+                $env:C8_LIVE_DEEPSEEK=$savedLiveC8
+                $env:C11_LIVE_DEEPSEEK=$savedLiveC11
                 Pop-Location
             }
         }
