@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 class OfficialCatalogSearch implements KnowledgeSearchProvider {
     private static final Pattern SPRING_VERSION =
             Pattern.compile("^/spring-(boot|ai|framework)/(\\d+(?:\\.\\d+){0,3})/");
+    private static final Pattern SPRING_AI_REFERENCE_VERSION=Pattern.compile("^/spring-ai/reference/(\\d+(?:\\.\\d+){0,3})/");
+    private static final Pattern JAVA_VERSION=Pattern.compile("^/en/java/javase/(\\d+)/");
     private final RegisteredSourceSearch registered;
     private final OfficialDocuments documents;
     private final List<URI> catalogs;
@@ -79,8 +81,11 @@ class OfficialCatalogSearch implements KnowledgeSearchProvider {
     }
     private static String family(URI uri) {return uri.getPath().split("/",3)[1];}
     private static String version(URI uri) {
-        var match=SPRING_VERSION.matcher(uri.getPath());
-        return match.find()?match.group(2):null;
+        for(var pattern:List.of(SPRING_VERSION,SPRING_AI_REFERENCE_VERSION,JAVA_VERSION)){
+            var match=pattern.matcher(uri.getPath());
+            if(match.find()) return match.group(match.groupCount());
+        }
+        return null;
     }
     private static KnowledgeDomain domain(URI uri) {
         return family(uri).equals("spring-ai")?KnowledgeDomain.AI_APPLICATION:KnowledgeDomain.JAVA_BACKEND;

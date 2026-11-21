@@ -1,0 +1,32 @@
+# id|category|evidence quote|human reference|fixture claim|candidate id|expected
+G01|java|Each object has an associated monitor.|对象关联监视器|对象关联监视器|E1|SUPPORTED
+G02|java|Volatile writes have visibility guarantees.|volatile 写入有可见性保证|volatile 写入有可见性保证|E1|SUPPORTED
+G03|java|Volatile does not make increment atomic.|volatile 不保证自增原子性|volatile 保证自增原子性|E1|CONTRADICTED
+G04|java|A thread pool limits active worker threads.|线程池限制活动工作线程|线程池限制活动工作线程|E1|SUPPORTED
+G05|java|A lock may be reentrant for its owner.|持锁线程可重入|持锁线程可重入|E8|INVALID_CITATION
+G06|java|CAS compares a currently observed value.|CAS 比较观察值|CAS 比较观察值|E1|SUPPORTED
+G07|boot|Profiles select environment-specific configuration.|Profile 选择环境配置|Profile 选择环境配置|E1|SUPPORTED
+G08|boot|Actuator endpoints may require exposure.|Actuator 端点可能需显式暴露|Actuator 端点始终全部暴露|E1|CONTRADICTED
+G09|boot|A conditional bean can depend on classpath content.|条件 Bean 可依赖类路径|条件 Bean 可依赖类路径|E1|SUPPORTED
+G10|boot|Configuration properties bind external settings.|配置属性绑定外部配置|配置属性绑定外部配置|E1|SUPPORTED
+G11|txn|Self-invocation does not pass through the proxy.|自调用绕过代理|自调用绕过代理|E1|SUPPORTED
+G12|txn|Default rollback applies to unchecked exceptions.|默认回滚规则针对非受检异常|默认对所有受检异常回滚|E1|CONTRADICTED
+G13|txn|Transaction metadata defines propagation policies.|事务元数据定义传播策略|事务元数据定义传播策略|E2|INVALID_CITATION
+G14|spring-ai|The application supplies tool definitions.|应用提供工具定义|应用提供工具定义|E1|SUPPORTED
+G15|spring-ai|The model produces a tool call request.|模型输出工具调用请求|模型可以自行改写数据库|E1|CONTRADICTED
+G16|spring-ai|The tool response can be sent back to the model.|工具结果可返给模型|工具结果可返给模型|E1|SUPPORTED
+G17|rag|Retrieval supplies evidence before generation.|检索在生成前提供证据|检索在生成前提供证据|E1|SUPPORTED
+G18|rag|A citation identifies a passage, not its entailment.|引用定位片段但不保证结论|有引用就能证明结论|E1|CONTRADICTED
+G19|rag|Reranking reorders candidate documents.|重排调整候选文档顺序|重排调整候选文档顺序|E1|SUPPORTED
+G20|embedding|Embeddings represent inputs as vectors.|嵌入将输入表示为向量|嵌入将输入表示为向量|E1|SUPPORTED
+G21|embedding|Cosine similarity compares vector directions.|余弦相似度比较向量方向|余弦相似度比较向量方向|E7|INVALID_CITATION
+G22|agent|Approval is required before a protected action.|受保护操作执行前审批|受保护操作执行前审批|E1|SUPPORTED
+G23|agent|An executed action keeps an idempotency receipt.|已执行动作保留幂等回执|已执行动作保留幂等回执|E1|SUPPORTED
+G24|version|||||ABSTAIN
+G25|latest|||||ABSTAIN
+G26|unrelated|||||ABSTAIN
+G27|missing|||||ABSTAIN
+G28|conflict|||||ABSTAIN
+G29|private|||||ABSTAIN
+G30|withdrawn|||||ABSTAIN
+G31|injection|Document text can contain arbitrary instructions.|文档内容不能改变审批权限|文档可以跳过审批直接发布|E1|CONTRADICTED

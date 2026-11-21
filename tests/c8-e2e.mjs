@@ -1,10 +1,14 @@
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
+import { createServer as reservePort } from 'node:net'
+import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { setTimeout } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
+import { verifyC12 } from './c12-e2e.mjs'
+import { createProviderBudget } from './c12-provider.mjs'
 import { verifyKnowledgeHub } from './c10-e2e.mjs'
 import { verifyEvidenceRag, verifyLiveRag } from './c11-e2e.mjs'
 
@@ -13,12 +17,42 @@ assert.match(database, /^jdbc:mysql:\/\/(127\.0\.0\.1|localhost):\d+\/[a-zA-Z0-9
   'Use a disposable local MySQL schema ending in _test')
 const live = process.env.C8_LIVE_DEEPSEEK === 'true'
 if (live && (!process.env.DEEPSEEK_API_KEY || process.env.CI)) throw new Error('Live mode requires a local key outside CI')
+if (existsSync('application-local.yml'))
+  throw new Error('Acceptance requires no root application-local.yml override')
+async function requireVacantPort(port) {
+  const socket=reservePort()
+  try {
+    await new Promise((resolve,reject)=>{
+      socket.once('error',reject)
+      socket.listen({port,exclusive:true},resolve)
+    })
+  } catch (failure) {
+    throw new Error('Acceptance requires unused port '+port+' ('+failure.code+')')
+  }
+  await new Promise((resolve,reject)=>socket.close(error=>error?reject(error):resolve()))
+}
+await Promise.all([8080,5173,18081].map(requireVacantPort))
 const require = createRequire(process.env.C8_PLAYWRIGHT_ROOT ?? new URL('../frontend/package.json', import.meta.url))
 const { chromium } = require('playwright')
 const api = 'http://localhost:8080/api/v1'
 const frontend = 'http://localhost:5173'
 const fixturePort = 18081
 const providerTrace = []
+const c12Live = live && process.env.C12_LIVE_DEEPSEEK === 'true'
+const providerBudget = c12Live ? createProviderBudget() : null
+let pauseReached
+let pauseRelease
+const paused = new Promise(resolve => {pauseReached=resolve})
+const resume = new Promise(resolve => {pauseRelease=resolve})
+const c12Gate = {
+  async wait() {
+    const timeout = AbortSignal.timeout(10000)
+    await Promise.race([paused,new Promise((_,reject)=>timeout.addEventListener('abort',()=>{
+      reject(new Error('C12 model pause fixture never reached'))
+    },{once:true}))])
+  },
+  release: () => pauseRelease(),
+}
 
 function modelFixture(request) {
   const last = request.messages.at(-1)
@@ -29,7 +63,7 @@ function modelFixture(request) {
     const evidence=rag.untrustedEvidence[0]
     const content={claims:evidence?[{statement:'请按照该版本的官方说明核对配置。',
       evidenceId:rag.question.includes('unknowncitation')?'E999':evidence.id,quote:evidence.text.slice(0,120)}]:[]}
-    message={role:'assistant',content:JSON.stringify(content)}
+    message={role:'assistant',content:rag.question.includes('c12invalidjson')?'not-json':JSON.stringify(content)}
   } else if (request.response_format?.type === 'json_object') {
     for(const block of rag?.untrustedDocumentEvidence || []) providerTrace.push('c11-path:'+block.versionId)
     const topic = 'Spring Boot 自动配置'
@@ -50,7 +84,10 @@ function modelFixture(request) {
     const change = content.match(/edit=(\d+)/)
     let name = 'today_tasks'
     let args = {}
-    if (subject) {
+    if (content.includes('c12invalidtool')) {
+      name='propose_task_update'
+      args={taskId:-1}
+    } else if (subject) {
       name = 'propose_task_create'
       args = { subjectId: Number(subject[1]), title: 'Agent 实际创建的任务', priority: 2, estimatedMinutes: 30 }
     } else if (change) {
@@ -89,7 +126,18 @@ const fixture = createServer(async (req, res) => {
     for await (const part of req) parts.push(part)
     const request = JSON.parse(Buffer.concat(parts).toString('utf8'))
     if (!live) {
+      const last=request.messages.at(-1)
+      if (last?.role==='user' && String(last.content).includes('c12pause')) {
+        pauseReached()
+        await resume
+      }
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(modelFixture(request)))
+      return
+    }
+    if (providerBudget) {
+      const forwarded = await providerBudget.forward(request)
+      providerTrace.push(forwarded.event)
+      res.writeHead(forwarded.status, { 'content-type': 'application/json' }).end(JSON.stringify(forwarded.data))
       return
     }
     const started = performance.now()
@@ -110,6 +158,14 @@ if (fixture) await new Promise(resolve => fixture.listen(fixturePort, '127.0.0.1
 const java = process.env.JAVA_HOME ? `${process.env.JAVA_HOME}/bin/java` : 'java'
 const backendEnv = {
   ...process.env, AI_ENABLED: 'true',
+  SPRING_APPLICATION_JSON: '{}',
+  SPRING_DATASOURCE_URL: database,
+  SPRING_DATASOURCE_USERNAME: process.env.DB_USERNAME || 'root',
+  SPRING_DATASOURCE_PASSWORD: process.env.DB_PASSWORD || '',
+  SPRING_FLYWAY_URL: database,
+  SPRING_FLYWAY_USER: process.env.DB_USERNAME || 'root',
+  SPRING_FLYWAY_PASSWORD: process.env.DB_PASSWORD || '',
+  SERVER_PORT: '8080',
   DEEPSEEK_API_KEY: live ? process.env.DEEPSEEK_API_KEY : randomUUID(),
   DEEPSEEK_BASE_URL: `http://127.0.0.1:${fixturePort}`,
   DEEPSEEK_COMPLETIONS_PATH: '/chat/completions',
@@ -124,14 +180,23 @@ function launchBackend() {
   })
 }
 let backend = launchBackend()
-const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', 'localhost', '--port', '5173'], {
+const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', 'localhost', '--port', '5173', '--strictPort'], {
   cwd: 'frontend', stdio: ['ignore', 'inherit', 'inherit'],
   env: process.env,
 })
 let browser
+let completed = false
+let failureCategory = null
+let phase = 'service_start'
 async function ready(url) {
   for (let n = 0; n < 90; n++) {
-    try { await fetch(url); return } catch { await setTimeout(500) }
+    const child=url.startsWith(api)?backend:preview
+    if(child.exitCode!==null || child.signalCode!==null) throw new Error('Acceptance child exited before readiness')
+    try {
+      const response=await fetch(url,{signal:AbortSignal.timeout(2500)})
+      if(response.status===(url.startsWith(api)?401:200)) return
+    } catch { /* Wait for the Spring or Vue listener. */ }
+    await setTimeout(500)
   }
   throw new Error(`Startup timed out at ${url}`)
 }
@@ -164,8 +229,17 @@ async function drain(account, run) {
 }
 const report = []
 try {
+  if (providerBudget) {
+    const readback = await providerBudget.forward({ model: process.env.DEEPSEEK_MODEL,
+      messages: [{ role: 'user', content: 'Return only the JSON object {"ready":true}.' }],
+      max_tokens: 256, response_format: { type: 'json_object' } })
+    providerTrace.push(readback.event)
+    assert.equal(readback.status, 200)
+    assert.equal(JSON.parse(readback.data.choices[0].message.content).ready, true)
+  }
   await ready(api + '/auth/me')
   await ready(frontend)
+  phase = 'business_scenarios'
   const a = await account()
   const b = await account()
   backendEnv.APP_KNOWLEDGE_REVIEWERS = String(a.credentials.user.id)
@@ -258,8 +332,21 @@ try {
     const actionResults = responses.map(res => res.actions.at(-1).result.id)
     assert.equal(actionResults[0], actionResults[1])
     const edit = (await chat('修改任务 edit=' + actionResults[0])).actions.at(-1)
-    await decideAction(edit)
+    const concurrent=await request(a,'/agent/sessions','POST')
+    const concurrentPath='/agent/sessions/'+concurrent.id
+    const sameEdit=(await request(a,concurrentPath+'/messages','POST',{text:'修改任务 edit='+actionResults[0]})).actions.at(-1)
+    assert.equal(edit.status,'PENDING')
+    assert.equal(sameEdit.status,'PENDING')
+    const racing=await Promise.all([
+      decideAction(edit),
+      request(a,concurrentPath+'/actions/'+sameEdit.id+'/decision','POST',{confirm:true,digest:sameEdit.digest}),
+    ])
+    assert.deepEqual(racing.map(result=>result.actions.at(-1).status).sort(),['EXECUTED','FAILED'])
     assert.equal((await request(a, '/tasks/' + actionResults[0])).priority, 4)
+    report.push('C-12 two separately approved edits to the same task: one executes, the stale proposal fails')
+    const denied=await chat('c12invalidtool')
+    assert.ok(denied.messages.at(-1).tools.some(tool=>tool.name==='propose_task_update'&&!tool.success))
+    assert.equal(denied.actions.filter(item=>item.status==='PENDING').length,0)
     report.push('C-7: goal/stat reads, create/update, cross-account denial, durable duplicate receipt')
   }
 
@@ -274,7 +361,27 @@ try {
     report.push('Live provider: C-9 profile tool selection, accepted arguments and actual tool result verified')
   }
 
+  if (providerBudget) {
+    const editDay=date(3)
+    const target=await request(a,'/tasks','POST',{subjectId:subject.id,title:'C12 Live Approval Fixture',priority:2,estimatedMinutes:30,plannedDate:date()})
+    const current=await request(a,'/tasks/'+target.id)
+    const reply=await request(a,base+'/messages','POST',{ text:
+      '请先调用 open_tasks 查询标题“C12 Live Approval Fixture”的任务，再调用 propose_task_update 生成日期变更草案。将真实任务的 plannedDate 改为 '+editDay+'。保留其他字段，等待我确认。' })
+    const successful=reply.messages.at(-1).tools.filter(tool=>tool.success)
+    assert.ok(successful.some(tool=>tool.name==='open_tasks'))
+    assert.ok(reply.actions.some(item=>item.type==='propose_task_update' && item.status==='PENDING'))
+    const pending=reply.actions.findLast(item=>item.type==='propose_task_update' && item.status==='PENDING')
+    assert.equal((await request(a,'/tasks/'+target.id)).plannedDate,current.plannedDate)
+    const confirm=()=>request(a,base+'/actions/'+pending.id+'/decision','POST',{confirm:true,digest:pending.digest})
+    await confirm()
+    await confirm()
+    assert.equal((await request(a,'/tasks/'+target.id)).plannedDate,editDay)
+    report.push('C-12 live model: structured JSON, multi-tool read and user-approved update with duplicate receipt')
+  }
+
+  phase = 'chromium_start'
   browser = await chromium.launch({ headless: true, executablePath: process.env.C8_CHROMIUM_PATH || undefined })
+  phase = 'business_and_browser_scenarios'
   const page = await browser.newPage()
   const pageErrors = []
   page.on('pageerror', error => pageErrors.push(error.message))
@@ -432,13 +539,22 @@ try {
   await page.getByText(candidate.topic, {exact: true}).waitFor()
   report.push('C-9 Chromium: authenticated learning insights and actual review data')
   await verifyKnowledgeHub({a,b,account,request,page,frontend,report})
-  if (!live) await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
+  if (!live) {
+    await verifyEvidenceRag({a,b,account,request,page,frontend,report,providerTrace})
+    if (process.env.C12_VERIFY_DB_FAULT==='true') await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate,page,frontend})
+  }
   if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report})
   assert.deepEqual(pageErrors, [])
+  completed = true
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
+} catch (error) {
+  failureCategory = phase==='chromium_start' ? 'CHROMIUM_START'
+    : phase==='service_start' ? 'SERVICE_READINESS'
+    : error instanceof assert.AssertionError ? 'BUSINESS_ASSERTION' : 'SCENARIO_RUNTIME'
+  throw error
 } finally {
-  console.log(JSON.stringify({ dataset: 'c8-c11-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
-    passedChecks: report.length, report, providerTrace, billing: live ? 'use returned usage and account pricing' : 'zero' }))
+  console.log(JSON.stringify({ dataset: 'c8-c12-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
+    status: completed ? 'PASS' : 'FAIL', failureCategory, commit: process.env.GITHUB_SHA ?? null, passedChecks: report.length, report, providerTrace, budget: providerBudget?.summary(), billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()
   preview.kill()
