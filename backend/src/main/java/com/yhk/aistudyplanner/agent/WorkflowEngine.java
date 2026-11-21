@@ -59,7 +59,7 @@ class WorkflowEngine {
 
     WorkflowRun autoAdvance(UUID id) {
         var run = get(id);
-        if (!run.scenario().equals("ADAPTIVE")) throw new BusinessException(VALIDATION_ERROR);
+        if (!Set.of("ADAPTIVE","ASSESSMENT").contains(run.scenario())) throw new BusinessException(VALIDATION_ERROR);
         long until = System.nanoTime() + Duration.ofSeconds(5).toNanos();
         for (int index = 0; index < MAX_STEPS && run.status() == Status.READY
                 && System.nanoTime() < until; index++) {

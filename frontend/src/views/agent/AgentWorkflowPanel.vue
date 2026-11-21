@@ -123,7 +123,7 @@ async function drive(id: string) {
   busy.value = true
   error.value = ''
   try {
-    if (run.value?.scenario === 'ADAPTIVE') {
+    if (run.value?.scenario === 'ADAPTIVE' || run.value?.scenario === 'ASSESSMENT') {
       const next = (await workflowApi.autoAdvance(id)).data.data
       if (current !== sequence) return
       if (!run.value || next.revision >= run.value.revision) run.value = next
