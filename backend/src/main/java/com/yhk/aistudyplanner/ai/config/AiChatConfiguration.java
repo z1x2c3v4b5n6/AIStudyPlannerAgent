@@ -59,7 +59,12 @@ public class AiChatConfiguration {
 
   @Bean
   @ConditionalOnBean(name = "deepSeekChatClient")
-  DeepSeekPlanningGateway deepSeekPlanningGateway(ChatClient deepSeekChatClient) {
-    return new DeepSeekPlanningGateway(deepSeekChatClient);
+  DeepSeekPlanningGateway deepSeekPlanningGateway(ChatClient deepSeekChatClient, AiPlanningProperties properties) {
+    var bounded = ChatClient.create(OpenAiChatModel.builder()
+        .openAiApi(api(properties, Math.min(15, properties.getTimeoutSeconds())))
+        .defaultOptions(buildChatOptions(properties))
+        .retryTemplate(new org.springframework.retry.support.RetryTemplateBuilder().maxAttempts(1).build())
+        .build());
+    return new DeepSeekPlanningGateway(deepSeekChatClient,bounded,properties.getMaxTokens());
   }
 }

@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
-function databaseHarness(java) {
+export function databaseHarness(java) {
   const jar=java==='java'?'jar':join(dirname(java),'jar'+(process.platform==='win32'?'.exe':''))
   const artifact=resolve('backend/target/ai-study-planner-agent-0.0.1-SNAPSHOT.jar')
   const connector=execFileSync(jar,['tf',artifact],{encoding:'utf8'}).split(/\r?\n/)

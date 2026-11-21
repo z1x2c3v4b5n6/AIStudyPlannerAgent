@@ -22,6 +22,31 @@ class C12DatabaseFault {
                             END
                             """.formatted(trigger,document));
                 }
+                case "install-submission" -> {
+                    String session=UUID.fromString(args[2]).toString();
+                    statement.execute("""
+                            CREATE TRIGGER %s BEFORE UPDATE ON assessment_session FOR EACH ROW
+                            BEGIN
+                              IF NEW.id='%s' AND NEW.state='SUBMITTED' THEN
+                                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='C13 isolated submission fault';
+                              END IF;
+                            END
+                            """.formatted(trigger,session));
+                }
+                case "grade-count" -> {
+                    String session=UUID.fromString(args[2]).toString();
+                    try(var query=connection.prepareStatement("SELECT COUNT(*) FROM assessment_session_item WHERE session_id=? AND grade IS NOT NULL")) {
+                        query.setString(1,session);
+                        try(var rows=query.executeQuery()) { if(rows.next()) System.out.println(rows.getInt(1)); }
+                    }
+                }
+                case "expire-session" -> {
+                    String session=UUID.fromString(args[2]).toString();
+                    try(var expire=connection.prepareStatement("UPDATE assessment_session SET expires_at='2000-01-01' WHERE id=? AND state='IN_PROGRESS'")) {
+                        expire.setString(1,session);
+                        if(expire.executeUpdate()!=1) throw new IllegalStateException("Expected one isolated session");
+                    }
+                }
                 case "remove" -> statement.execute("DROP TRIGGER IF EXISTS "+trigger);
                 case "connections" -> {
                     try(var rows=statement.executeQuery("SHOW STATUS LIKE 'Threads_connected'")) {

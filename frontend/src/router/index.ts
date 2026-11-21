@@ -15,6 +15,7 @@ const router = createRouter({
       children: [
         { path: '', name: 'home', component: () => import('../views/DashboardView.vue'), meta: { title: '学习概览', description: '聚焦今天，稳步推进你的学习安排' } },
         { path: 'adaptive', name: 'adaptive', component: () => import('../views/adaptive/AdaptiveView.vue'), meta: { title: '学习洞察' } },
+        { path: 'assessments', name: 'assessments', component: () => import('../views/assessment/AssessmentView.vue'), meta: { title: '学习测评' } },
         { path: 'knowledge', name: 'knowledge', component: () => import('../views/knowledge/KnowledgeHubView.vue'), meta: { title: '知识中心' } },
         { path: 'agent', name: 'agent', component: () => import('../views/agent/AgentView.vue'), meta: { title: 'AI 学习助手' } },
         { path: 'subjects', name: 'subjects', component: () => import('../views/subjects/SubjectListView.vue'), meta: { title: '科目管理', description: '整理学习方向和科目结构' } },

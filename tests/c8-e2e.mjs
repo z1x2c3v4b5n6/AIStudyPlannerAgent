@@ -7,6 +7,7 @@ import { createRequire } from 'node:module'
 import { setTimeout } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
+import {assessmentFixture,verifyAssessments} from './c13-e2e.mjs'
 import { verifyC12 } from './c12-e2e.mjs'
 import { createProviderBudget } from './c12-provider.mjs'
 import { verifyKnowledgeHub } from './c10-e2e.mjs'
@@ -59,7 +60,10 @@ function modelFixture(request) {
   let message
   let rag
   try { rag=JSON.parse(last.content) } catch { /* Agent turns may be ordinary text. */ }
-  if (rag?.question && Array.isArray(rag.untrustedEvidence)) {
+  const assessment=assessmentFixture(rag)
+  if (assessment) {
+    message={role:'assistant',content:JSON.stringify(assessment)}
+  } else if (rag?.question && Array.isArray(rag.untrustedEvidence)) {
     const evidence=rag.untrustedEvidence[0]
     const content={claims:evidence?[{statement:'请按照该版本的官方说明核对配置。',
       evidenceId:rag.question.includes('unknowncitation')?'E999':evidence.id,quote:evidence.text.slice(0,120)}]:[]}
@@ -93,6 +97,9 @@ function modelFixture(request) {
     } else if (change) {
       name = 'open_tasks'
       args = { title: 'Agent 实际创建的任务' }
+    } else if (content.includes('c13-weak-topics')) {
+      name='list_weak_topics'
+      args={unitId:'spring-transaction'}
     } else if (content.includes('调取学习画像')) {
       name = 'get_learning_profile'
       args = {days: 14}
@@ -562,6 +569,15 @@ try {
     if (process.env.C12_VERIFY_DB_FAULT==='true') await verifyC12({a,b,request,report,java,backendPid:backend.pid,gate:c12Gate,page,frontend})
   }
   if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report,providerTrace,extended:Boolean(providerBudget)})
+  if(!live || process.env.C13_LIVE_ASSESSMENT==='true') {
+    await verifyAssessments({a,b,request,page,frontend,report,date,live,java,restart:async()=>{
+      const closed=once(backend,'exit')
+      backend.kill()
+      await closed
+      backend=launchBackend()
+      await ready(api+'/auth/me')
+    }})
+  }
   assert.deepEqual(pageErrors, [])
   completed = true
   report.push('Chromium: real login, DB-backed workflow, reload/history, approval preview and rejection')
@@ -571,7 +587,7 @@ try {
     : error instanceof assert.AssertionError ? 'BUSINESS_ASSERTION' : 'SCENARIO_RUNTIME'
   throw error
 } finally {
-  console.log(JSON.stringify({ dataset: 'c8-c12-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
+  console.log(JSON.stringify({ dataset: 'c8-c13-e2e-v1', mode: live ? 'live-provider' : 'local-provider-fixture',
     status: completed ? 'PASS' : 'FAIL', failureCategory, commit: process.env.GITHUB_SHA ?? null, passedChecks: report.length, report, providerTrace, budget: providerBudget?.summary(), billing: live ? 'use returned usage and account pricing' : 'zero' }))
   await browser?.close()
   backend.kill()

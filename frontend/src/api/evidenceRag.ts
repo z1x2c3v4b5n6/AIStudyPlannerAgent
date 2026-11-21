@@ -13,6 +13,10 @@ export type RagAnswer = {
   latencyInformation: { retrievalMs: number; modelMs: number; totalMs: number }
   conversationId?: string; onlineStatus: string
 }
+export type TeachingStyle = 'SIMPLE'|'PRINCIPLE'|'EXAMPLE'|'COMPARE'
+export type TeachingResult = { mode: string; reason?: string; citations: RagAnswer['citations']
+  lessons: { unitId: string; evidenceId: string; fact: string; principle?: string; conditions: string
+    example?: string; exampleStatus?: string; softwareVersion: string }[] }
 export type RagTurn = { id: string; question: string; version?: string; time: string }
 export type ReviewCase = {
   id: string; versionId: string; environment: string; queryType: string; users: number
@@ -27,6 +31,8 @@ export const evidenceRag = {
   answer: (body: {query: string; domain?: Domain; softwareVersion?: string; scope: Scope
     allowOnline: boolean; allowPrivateModel: boolean; conversationId?: string}) =>
     http.post<ApiResponse<RagAnswer>>(base + '/rag/answer', body, { timeout: 115000 }),
+  explain: (input: {query:string; softwareVersion?:string; style:TeachingStyle}) =>
+    http.post<ApiResponse<TeachingResult>>(base + '/rag/explain',input,{timeout:45000}),
   history: () => http.get<ApiResponse<RagTurn[]>>(base + '/rag/history'),
   feedback: (version: string, correction: boolean, body: {ordinal: number; category: string; queryType: string; environment: string}) =>
     http.request({url:base + '/versions/' + version + '/feedback',method:correction?'PUT':'POST',data:body}),

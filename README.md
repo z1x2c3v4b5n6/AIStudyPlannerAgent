@@ -9,6 +9,8 @@ AI 学习规划助手将自然语言需求连接到真实任务、每日计划�
 
 Windows 快速入口为 `.\scripts\dev-acceptance.ps1 -Mode Doctor`。通过诊断后使用 `-Mode Start` 启动，或使用 `-Mode E2E` 在临时测试库验收。[C-12.1 验收矩阵、配置和限制](docs/final-acceptance-c12-1.md)
 
+**C-13 学习测评**支持基于已发布知识出题、审核题库、暂存与提交测评、复盘错题，并依据新题表现给出复习建议。知识中心保留原文问答，新增带版本和引用的教学解释。[使用方式与技术文档](docs/learning-assessment-c13.md) · [质量评估](docs/learning-assessment-c13-evaluation.md)
+
 ## 当前功能
 
 - 注册、登录、退出、Token 保存与刷新后的登录状态恢复
@@ -197,6 +199,8 @@ AI 与规则草案使用同一个确认接口，不存在绕过业务校验的�
 - `V4__add_learning_paths.sql`：新增长期学习路径、阶段节点及节点到真实任务的一对一关联。
 
 已经在环境中执行过的 Flyway migration 必须保持不可变，否则会产生 checksum mismatch。后续 Schema 变化只能增加新的版本迁移，不能修改 V1、V2 或 V3。
+
+V12 建立版本化的测评题库与审核记录。V13 增加测评会话、作答及判分结果，历史会话继续引用原题目版本。
 
 ## 本地开发
 
