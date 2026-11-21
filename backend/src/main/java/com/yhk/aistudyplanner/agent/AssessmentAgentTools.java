@@ -121,8 +121,17 @@ class AssessmentAgentTools {
         if(PRACTICE.equals(proposal.type()))
             return sessions.start(json.convertValue(proposal.payload(),AssessmentSessions.Start.class));
         var recomputed=review(json.convertValue(proposal.payload().path("request"),Review.class));
-        if(!recomputed.preview().equals(proposal.preview())) throw new BusinessException(AGENT_ACTION_CONFLICT);
+        if(!samePreview(recomputed.preview(),proposal.preview())) throw new BusinessException(AGENT_ACTION_CONFLICT);
         return reviews.applyReviewed(proposal.preview());
+    }
+
+    static boolean samePreview(JsonNode current,JsonNode approved) {
+        // JDBC round-trips integer values without preserving Jackson's Java numeric subtype.
+        return current.equals((left,right)->{
+            if(left.isIntegralNumber() && right.isIntegralNumber())
+                return left.bigIntegerValue().compareTo(right.bigIntegerValue());
+            return left.equals(right)?0:1;
+        },approved);
     }
 
     JsonNode intent(String input) {

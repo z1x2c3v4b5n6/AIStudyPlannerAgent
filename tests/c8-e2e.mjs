@@ -570,7 +570,7 @@ try {
   }
   if (live && process.env.C11_LIVE_DEEPSEEK==='true') await verifyLiveRag({a,request,report,providerTrace,extended:Boolean(providerBudget)})
   if(!live || process.env.C13_LIVE_ASSESSMENT==='true') {
-    await verifyAssessments({a,b,request,page,frontend,report,date,live,restart:async()=>{
+    await verifyAssessments({a,b,request,page,frontend,report,date,live,java,restart:async()=>{
       const closed=once(backend,'exit')
       backend.kill()
       await closed
