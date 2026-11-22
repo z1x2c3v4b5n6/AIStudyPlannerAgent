@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { evidenceRag as api, type RagAnswer, type RagTurn } from '../../api/evidenceRag'
+import { evidenceRag as api, type RagAnswer, type RagTurn, type TeachingStyle, type TeachingResult } from '../../api/evidenceRag'
 import { knowledgeHubApi, type Detail, type Scope } from '../../api/knowledgeHub'
 
 defineProps<{ canFetch: boolean }>()
@@ -12,6 +12,8 @@ const privateModel=ref(false)
 const follow=ref<string>()
 const result=ref<RagAnswer>()
 const history=ref<RagTurn[]>([])
+const teaching=ref<TeachingResult>()
+const style=ref<TeachingStyle>('SIMPLE')
 const busy=ref(false)
 const detail=ref<Detail>()
 const selectedOrdinal=ref<number>()
@@ -35,6 +37,7 @@ async function ask() {
   busy.value=true
   error.value=''
   result.value=undefined
+  teaching.value=undefined
   try {
     result.value=(await api.answer({query:question.value.trim(),softwareVersion:version.value.trim()||undefined,
       scope:scope.value,allowOnline:allowOnline.value&&scope.value!=='PRIVATE',
@@ -42,6 +45,18 @@ async function ask() {
     follow.value=result.value.conversationId
     await loadHistory()
   } catch { error.value='问答请求失败。' }
+  finally { busy.value=false }
+}
+async function explain() {
+  if(!question.value.trim() || busy.value || scope.value!=='PUBLIC') return
+  busy.value=true
+  teaching.value=undefined
+  result.value=undefined
+  error.value=''
+  try {
+    teaching.value=(await api.explain({query:question.value.trim(),softwareVersion:version.value.trim()||undefined,
+      style:style.value})).data.data
+  } catch { error.value='教学解释请求失败。' }
   finally { busy.value=false }
 }
 function followUp(turn: RagTurn) {
@@ -81,6 +96,11 @@ async function sendFeedback() {
         <el-checkbox v-if="canFetch" v-model="allowOnline" :disabled="scope==='PRIVATE'">允许在线补充</el-checkbox>
         <el-checkbox v-if="scope!=='PUBLIC'" v-model="privateModel">允许将检索到的个人片段发送给模型</el-checkbox>
         <el-button native-type="submit" type="primary" :loading="busy">提问</el-button>
+        <el-select v-if="scope==='PUBLIC'" v-model="style" aria-label="教学解释方式">
+          <el-option label="简单解释" value="SIMPLE"/><el-option label="技术原理" value="PRINCIPLE"/>
+          <el-option label="教学示例" value="EXAMPLE"/><el-option label="比较概念" value="COMPARE"/>
+        </el-select>
+        <el-button v-if="scope==='PUBLIC'" :loading="busy" @click="explain">教学解释</el-button>
         <el-button v-if="follow" @click="follow=undefined">开始新问题</el-button>
       </div>
     </form>
@@ -101,6 +121,26 @@ async function sendFeedback() {
         <el-button v-if="citation.evidence.scope==='PUBLIC'" text @click="feedback=citation">反馈引用</el-button>
       </article>
     </template>
+    <section v-if="teaching">
+      <h3>教学解释</h3>
+      <el-alert v-if="teaching.reason" type="info" :closable="false"
+        :title="reasons[teaching.reason] || '缺少覆盖完整前提的已审核解释，可查看原文证据。'"/>
+      <article v-for="lesson in teaching.lessons" :key="lesson.evidenceId" class="citation">
+        <h4>[{{ lesson.evidenceId }}] {{ lesson.fact }}</h4>
+        <p v-if="lesson.principle">{{ lesson.principle }}</p>
+        <p>{{ lesson.conditions }}</p>
+        <p v-if="lesson.example"><strong>教学示例（未运行）</strong></p>
+        <pre v-if="lesson.example" class="answer">{{ lesson.example }}</pre>
+        <router-link :to="{path:'/assessments',query:{tab:'bank',unit:lesson.unitId,version:lesson.softwareVersion}}">从此知识点生成练习</router-link>
+        · <router-link :to="{path:'/assessments',query:{tab:'wrong',unit:lesson.unitId}}">查看相关错题</router-link>
+      </article>
+      <article v-for="citation in teaching.citations" :key="citation.evidence.id" class="citation">
+        <strong>[{{ citation.evidence.id }}] {{ citation.evidence.title }} · {{ citation.evidence.softwareVersion }}</strong>
+        <blockquote>{{ citation.quote }}</blockquote>
+        <a v-if="citation.evidence.url" :href="citation.evidence.url" target="_blank" rel="noopener noreferrer">原始来源</a>
+        <el-button v-if="citation.evidence.versionId" text @click="view(citation.evidence.versionId,citation.evidence.line)">查看引用片段</el-button>
+      </article>
+    </section>
     <details v-if="history.length">
       <summary>问答历史</summary>
       <ul><li v-for="turn in history" :key="turn.id">

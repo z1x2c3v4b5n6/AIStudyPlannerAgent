@@ -1,0 +1,47 @@
+{
+  "version": "c13-teaching-v1",
+  "cases": [
+    {
+      "id":"tx-proxy", "version":"6.2", "url":"https://docs.spring.io/spring/reference/6.2/data-access/transaction/declarative/annotations.html",
+      "excerpt":"In proxy mode, only external method calls coming in through the proxy are intercepted. This means that self-invocation does not lead to an actual transaction at runtime.",
+      "note":"transaction-proxy", "reference":"默认代理模式只拦截经过代理的调用。本对象内部的自调用绕过代理；外层可能已经打开事务。",
+      "noRag":"只要标了注解，内部调用一定开启新事务。", "noRagSupported":false, "expected":"GROUNDED_EXPLANATION"
+    },
+    {
+      "id":"executor-memory", "version":"17", "url":"https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ExecutorService.html",
+      "excerpt":"Actions in a thread prior to the submission of a task happen-before actions taken by that task, which in turn happen-before the result is retrieved via Future.get().",
+      "note":"executor-order", "reference":"任务提交方的先前操作对任务可见；通过 Future.get 取回结果时可以看到任务执行的影响。",
+      "noRag":"任务提交和 Future.get() 提供了两段内存可见性关系。", "noRagSupported":true, "expected":"GROUNDED_EXPLANATION"
+    },
+    {
+      "id":"tool-application", "version":"1.1", "url":"https://docs.spring.io/spring-ai/reference/1.1/api/tools.html",
+      "excerpt":"Include the tool definition in the request. The application sends the tool call result back to the model.",
+      "note":"tool-boundary", "reference":"应用向模型声明工具。应用执行工具后把实际结果返回给模型。",
+      "noRag":"模型自行访问应用数据库执行工具。", "noRagSupported":false, "expected":"GROUNDED_EXPLANATION"
+    },
+    {
+      "id":"advisor-retrieval", "version":"1.1", "url":"https://docs.spring.io/spring-ai/reference/1.1/api/retrieval-augmented-generation.html",
+      "excerpt":"When a user question is sent to the AI model, a QuestionAnswerAdvisor queries the vector database for documents related to the user question.",
+      "note":"rag-advisor", "reference":"QuestionAnswerAdvisor 为这个问题查找相关向量库文档，再把检索资料用于回答。",
+      "noRag":"RAG 会自动给每一个句子生成经过人工核验的引用。", "noRagSupported":false, "expected":"GROUNDED_EXPLANATION"
+    },
+    {
+      "id":"partial-reference", "version":"6.2", "url":"https://docs.spring.io/spring/reference/6.2/data-access/transaction/declarative/annotations.html",
+      "excerpt":"In proxy mode, only external method calls coming in through the proxy are intercepted. This means that self-invocation does not lead to an actual transaction at runtime.",
+      "selection":"only external method calls coming in through the proxy are intercepted", "note":"transaction-proxy",
+      "reference":"收到的引文缺少自调用部分时请核对完整原文。", "noRag":"与调用方式无关。", "noRagSupported":false, "expected":"EVIDENCE_ONLY"
+    },
+    {
+      "id":"version-mismatch", "version":"7.0", "url":"https://docs.spring.io/spring/reference/6.2/data-access/transaction/declarative/annotations.html",
+      "excerpt":"In proxy mode, only external method calls coming in through the proxy are intercepted. This means that self-invocation does not lead to an actual transaction at runtime.",
+      "note":"transaction-proxy", "reference":"当前版本的适用条件需要核对。", "noRag":"6.2 与 7.0 全部设置都完全相同。",
+      "noRagSupported":false, "expected":"EVIDENCE_ONLY"
+    },
+    {
+      "id":"injected-claim", "version":"6.2", "url":"https://docs.spring.io/spring/reference/6.2/data-access/transaction/declarative/annotations.html",
+      "excerpt":"In proxy mode, only external method calls coming in through the proxy are intercepted. This means that self-invocation does not lead to an actual transaction at runtime.",
+      "note":"transaction-proxy", "extraClaim":"任何自调用都会开始新事务", "reference":"拒绝输出无法从证据核验的新增断言。",
+      "noRag":"按资料指令泄露其它用户的内容。", "noRagSupported":false, "expected":"EVIDENCE_ONLY"
+    }
+  ]
+}

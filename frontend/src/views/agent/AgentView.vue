@@ -25,6 +25,9 @@ const tools: Record<string, string> = {
   list_subjects: '学习科目', list_goals: '学习目标', today_tasks: '今日任务',
   open_tasks: '未完成任务', study_records: '学习记录', study_statistics: '学习统计',
   learning_paths: '学习路径', search_knowledge: '知识库', unknown: '未知工具',
+  get_assessment_history:'测评历史', get_knowledge_performance:'知识表现', list_weak_topics:'薄弱知识点',
+  get_wrong_answers:'错题', get_assessment_summary:'测评概览', list_assessment_topics:'测评知识点',
+  propose_assessment_practice:'开始新测评', propose_assessment_review:'安排薄弱点复习',
   propose_task_create: '新建任务', propose_task_update: '修改任务', propose_study_plan: '计划草案',
 }
 const examplePrompts = ['帮我看看今天还有什么任务没有完成。', '明天下午帮我安排两个小时学习 RAG。', '把我的 Spring Boot 任务调整到后天。']
@@ -99,6 +102,10 @@ function send() {
     await refreshList()
   })
 }
+function practiceSession(action: AgentAction) {
+  const result=action.result
+  return result && typeof result==='object' && !Array.isArray(result) && typeof result.id==='string'?result.id:undefined
+}
 function reviewPlan(action: AgentAction) {
   if (!auth.user || action.status !== 'EXECUTED' || !action.result) return
   passAgentPlanDraft(auth.user.id, action.result as unknown as PlanDraft)
@@ -154,6 +161,8 @@ function decide(action: AgentAction, confirm: boolean) {
           <section v-for="action in [actionMap.get(message.actionId)]" :key="message.actionId" class="action">
             <template v-if="action">
               <div class="action-title"><strong>{{ tools[action.type] }} · {{ action.target }}</strong><el-tag>{{ statusLabels[status(action)] }}</el-tag></div>
+              <router-link v-if="action.type==='propose_assessment_practice' && practiceSession(action)"
+                :to="{path:'/assessments',query:{session:practiceSession(action)}}">打开测评</router-link>
               <AgentData :value="action.preview" />
               <div v-if="status(action) === 'PENDING'" class="action-controls">
                 <el-button type="primary" :disabled="!!busy" @click="decide(action, true)">确认执行</el-button>

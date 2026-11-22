@@ -62,6 +62,9 @@ class AgentActions {
     @org.springframework.beans.factory.annotation.Autowired
     void setAdaptive(AdaptiveAgentTools adaptive) { this.adaptive=adaptive; }
     private AdaptiveAgentTools adaptive;
+    private AssessmentAgentTools assessment;
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAssessment(AssessmentAgentTools assessment) { this.assessment=assessment; }
 
     List<ToolCallback> callbacks() {
         var result=new ArrayList<>(List.of(
@@ -74,11 +77,18 @@ class AgentActions {
             result.add(tools.callback(new AgentTools.Tool<>("propose_review_tasks","提案批量复习任务，必须用户确认",
                     AdaptiveAgentTools.ReviewArgs.class,null)));
         }
+        if(assessment!=null) {
+            result.add(tools.callback(new AgentTools.Tool<>(AssessmentAgentTools.PRACTICE,"预览现有审核题库的练习，用户确认后创建会话",
+                    AssessmentAgentTools.Practice.class,null)));
+            result.add(tools.callback(new AgentTools.Tool<>(AssessmentAgentTools.REVIEW,"按每日可用分钟预览薄弱点复习任务，用户确认后创建任务",
+                    AssessmentAgentTools.Review.class,null)));
+        }
         return List.copyOf(result);
     }
 
     boolean supports(String name) { return CREATE.equals(name) || EDIT.equals(name) || PLAN.equals(name)
-            || adaptive!=null && ("propose_adaptive_plan".equals(name)||"propose_review_tasks".equals(name)); }
+            || adaptive!=null && ("propose_adaptive_plan".equals(name)||"propose_review_tasks".equals(name))
+            || assessment!=null && Set.of(AssessmentAgentTools.PRACTICE,AssessmentAgentTools.REVIEW).contains(name); }
 
     Proposal propose(String name, JsonNode arguments, Map<Long, TaskView> observed) {
         return switch (name) {
@@ -87,6 +97,8 @@ class AgentActions {
             case PLAN -> plan(tools.bind(arguments, Plan.class), observed);
             case "propose_adaptive_plan" -> adaptive.proposePlan(tools.bind(arguments, AdaptiveAgentTools.PlanChoice.class));
             case "propose_review_tasks" -> adaptive.proposeReview(tools.bind(arguments, AdaptiveAgentTools.ReviewArgs.class));
+            case AssessmentAgentTools.PRACTICE -> assessment.practice(tools.bind(arguments,AssessmentAgentTools.Practice.class));
+            case AssessmentAgentTools.REVIEW -> assessment.review(tools.bind(arguments,AssessmentAgentTools.Review.class));
             default -> throw new BusinessException(AGENT_TOOL_INVALID);
         };
     }
@@ -156,6 +168,7 @@ class AgentActions {
                 yield confirmed;
             }
             case "propose_adaptive_plan", "propose_review_tasks" -> adaptive.apply(proposal);
+            case AssessmentAgentTools.PRACTICE,AssessmentAgentTools.REVIEW -> assessment.apply(proposal);
             default -> throw new BusinessException(AGENT_TOOL_INVALID);
         };
     }

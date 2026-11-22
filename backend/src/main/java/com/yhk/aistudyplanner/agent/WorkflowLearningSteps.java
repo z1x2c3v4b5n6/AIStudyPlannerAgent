@@ -53,10 +53,18 @@ class WorkflowLearningSteps {
     @org.springframework.beans.factory.annotation.Autowired
     void setAdaptive(AdaptiveAgentTools adaptive) { this.adaptive=adaptive; }
 
+    private AssessmentAgentTools assessment;
+    @org.springframework.beans.factory.annotation.Autowired
+    void setAssessment(AssessmentAgentTools assessment) { this.assessment=assessment; }
+
     Plan plan(String text) {
         if (text == null || text.isBlank() || text.length() > AgentService.MAX_INPUT
                 || text.matches("(?s).*(删除|清空|批量完成|标记完成).*")) {
             throw new BusinessException(AGENT_TOOL_INVALID);
+        }
+        if(assessment!=null) {
+            var intent=assessment.intent(text);
+            if(intent!=null) return assessmentPlan(intent);
         }
         if(adaptive!=null){
             var intent=adaptive.createIntent(text);
@@ -89,6 +97,20 @@ class WorkflowLearningSteps {
         definitions.add(def("RESULT", "result"));
         definitions.add(def("END", "end"));
         return build(scenario, definitions, inputs);
+    }
+
+    private Plan assessmentPlan(JsonNode input) {
+        var steps=new ArrayList<>(List.of(def("START","start"),def("PLAN","plan"),def("TOOL","assessmentRead")));
+        if(!"ANALYZE".equals(input.path("intent").asText())) {
+            if("REVIEW".equals(input.path("intent").asText()) && !input.hasNonNull("budget")) steps.add(def("CLARIFY","clarify"));
+            steps.add(def("TOOL","assessmentPreview"));
+            steps.add(def("CONDITION","assessmentCondition"));
+            steps.add(new Definition(WorkflowRun.Kind.APPROVAL,"assessmentApproval","assessmentCondition"));
+            steps.add(new Definition(WorkflowRun.Kind.TOOL,"assessmentApply","assessmentCondition"));
+        }
+        steps.add(def("RESULT","assessmentResult"));
+        steps.add(def("END","end"));
+        return build("ASSESSMENT",steps,input);
     }
 
     private Plan adaptivePlan(JsonNode input) {
@@ -148,11 +170,11 @@ class WorkflowLearningSteps {
             case PLAN -> Set.of("plan", "adjustment").contains(operation);
             case TOOL -> Set.of("tasks", "subjects", "knowledge", "records", "statistics", "paths",
                     "calendar", "apply", "planDraft", "pathDraft", "learningProfile","diagnostics","reviewCandidates",
-                    "adaptivePreview","adaptiveApply").contains(operation);
+                    "adaptivePreview","adaptiveApply","assessmentRead","assessmentPreview","assessmentApply").contains(operation);
             case CLARIFY -> operation.equals("clarify");
-            case CONDITION -> Set.of(CONDITION,"adaptiveCondition").contains(operation);
-            case APPROVAL -> Set.of(APPROVAL,"adaptiveApproval").contains(operation);
-            case RESULT -> Set.of("result","adaptiveResult").contains(operation);
+            case CONDITION -> Set.of(CONDITION,"adaptiveCondition","assessmentCondition").contains(operation);
+            case APPROVAL -> Set.of(APPROVAL,"adaptiveApproval","assessmentApproval").contains(operation);
+            case RESULT -> Set.of("result","adaptiveResult","assessmentResult").contains(operation);
             case END -> operation.equals("end");
             case ERROR -> operation.equals("error");
         };
@@ -181,6 +203,29 @@ class WorkflowLearningSteps {
                 yield adaptive.applyWorkflow(run.result("adaptivePreview"),approval.result().path("strategy").asText());
             }
             case "adaptiveResult" -> adaptiveSummary(run);
+            case "assessmentRead" -> data(assessment.readIntent(inputs(run)));
+            case "assessmentPreview" -> assessment.previewIntent(inputs(run));
+            case "assessmentCondition" -> data(Map.of("proceed",run.result("assessmentPreview").hasNonNull("type")));
+            case "assessmentApproval" -> {
+                var proposal=mapper.convertValue(run.result("assessmentPreview"),AgentActions.Proposal.class);
+                yield data(Map.of("digest",AgentSessions.digest(proposal),"preview",proposal.preview()));
+            }
+            case "assessmentApply" -> {
+                if(run.nodes().stream().noneMatch(n->n.id().equals("assessmentApproval") && n.status()==WorkflowRun.StepStatus.DONE))
+                    throw new BusinessException(AGENT_ACTION_CONFLICT);
+                yield data(assessment.apply(mapper.convertValue(run.result("assessmentPreview"),AgentActions.Proposal.class)));
+            }
+            case "assessmentResult" -> {
+                var result=mapper.createObjectNode();
+                result.set("observed",run.result("assessmentRead"));
+                if(!"ANALYZE".equals(inputs(run).path("intent").asText())) {
+                    var preview=run.result("assessmentPreview");
+                    if(preview!=null && preview.hasNonNull("reason")) result.set("reason",preview.path("reason"));
+                    var applied=run.result("assessmentApply");
+                    if(applied!=null) result.set("executed",applied);
+                }
+                yield result;
+            }
             case "tasks" -> candidates(run);
             case "subjects" -> read("list_subjects");
             case "knowledge" -> data(tools.run("search_knowledge", mapper.createObjectNode()

@@ -9,7 +9,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/knowledge-hub/rag")
 class RagAnswerController {
     private final RagAnswerService answers;
-    RagAnswerController(RagAnswerService answers) { this.answers=answers; }
+    private final TeachingExplanations teaching;
+    RagAnswerController(RagAnswerService answers,TeachingExplanations teaching) {
+        this.answers=answers; this.teaching=teaching;
+    }
+    @PostMapping("/explain")
+    ApiResponse<TeachingExplanations.Result> explain(@Valid @RequestBody TeachingExplanations.Ask ask) {
+        return ApiResponse.success(teaching.explain(ask));
+    }
     @PostMapping("/answer")
     ApiResponse<RagAnswerService.Answer> answer(@Valid @RequestBody RagAnswerService.Ask ask) {
         return ApiResponse.success(answers.ask(ask));
